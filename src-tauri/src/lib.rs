@@ -1,5 +1,6 @@
 mod audio;
 mod commands;
+mod data_profile;
 mod db;
 mod desktop;
 mod notification;
@@ -9,13 +10,14 @@ mod timer;
 mod window_state;
 
 use audio::NativeSoundPlayer;
+use data_profile::DataProfile;
 use db::SqliteRepository;
 use desktop::{create_tray, DesktopLifecycle, TrayController};
 use notification::NativeNotificationService;
 use shortcuts::ShortcutManager;
 use statistics::StatisticsService;
 use std::sync::Arc;
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, WebviewWindowBuilder};
 use timer::clock::{SystemClock, SystemLocalDateResolver};
 use timer::runtime::TimerEventSink;
 use timer::TimerManager;
@@ -104,19 +106,46 @@ pub fn run() {
             }
 
             app.manage(DesktopLifecycle::new());
-            let data_directory = app.path().app_data_dir()?;
-            std::fs::create_dir_all(&data_directory)?;
-            let window_manager = WindowManager::open(
-                app.handle().clone(),
-                data_directory.join("window-state.json"),
-            );
+            let production_data_directory = app.path().app_data_dir()?;
+            let test_data_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .ok_or_else(|| std::io::Error::other("Missing workspace root."))?
+                .join(".test-data");
+            let data_profile =
+                DataProfile::resolve(production_data_directory, &test_data_root, std::env::vars())
+                    .map_err(std::io::Error::other)?;
+            data_profile.prepare().map_err(std::io::Error::other)?;
+            if data_profile.is_test() {
+                log::info!(
+                    "Pomodoro test profile resolved data directory: {}",
+                    data_profile.data_directory().display()
+                );
+            }
+            app.manage(data_profile.clone());
+            let window_config = app
+                .config()
+                .app
+                .windows
+                .first()
+                .ok_or_else(|| std::io::Error::other("Missing main window configuration."))?
+                .clone();
+            let window_builder = WebviewWindowBuilder::from_config(app, &window_config)?;
+            if data_profile.is_test() {
+                window_builder
+                    .data_directory(data_profile.webview_data_path())
+                    .build()?;
+            } else {
+                window_builder.build()?;
+            }
+            let window_manager =
+                WindowManager::open(app.handle().clone(), data_profile.window_state_path());
             window_manager.apply_initial(app.handle());
             window_manager.schedule_capture();
             app.manage(window_manager);
             let shortcut_manager = ShortcutManager::new();
             shortcut_manager.configure(app.handle(), true);
             app.manage(shortcut_manager);
-            let database_path = data_directory.join("pomodoro.sqlite3");
+            let database_path = data_profile.database_path();
             let statistics_repository =
                 SqliteRepository::open(&database_path).map_err(std::io::Error::other)?;
             app.manage(StatisticsService::new(statistics_repository));
@@ -134,6 +163,15 @@ pub fn run() {
             )
             .map_err(std::io::Error::other)?;
             manager.start_worker().map_err(std::io::Error::other)?;
+            if data_profile.smoke_autostart() {
+                let settings = timer::TimerSettings::default()
+                    .with_test_durations(10, 5, 5)
+                    .map_err(std::io::Error::other)?;
+                manager
+                    .initialize(settings, false, 0.0, false)
+                    .map_err(std::io::Error::other)?;
+                manager.start().map_err(std::io::Error::other)?;
+            }
             app.manage(manager);
             let tray = create_tray(app)?;
             app.manage(tray);
@@ -141,6 +179,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::timer_initialize,
+            commands::runtime_get_profile,
             commands::timer_get_snapshot,
             commands::timer_configure,
             commands::timer_configure_sound,

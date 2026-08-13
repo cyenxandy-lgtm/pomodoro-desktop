@@ -63,6 +63,15 @@ pub struct TimerSettings {
     pub long_break_interval: u32,
     pub auto_start_break: bool,
     pub auto_start_focus: bool,
+    #[serde(skip)]
+    pub(crate) test_duration_seconds: Option<TestTimerDurations>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct TestTimerDurations {
+    focus: u32,
+    short_break: u32,
+    long_break: u32,
 }
 
 impl Default for TimerSettings {
@@ -74,11 +83,29 @@ impl Default for TimerSettings {
             long_break_interval: 4,
             auto_start_break: false,
             auto_start_focus: false,
+            test_duration_seconds: None,
         }
     }
 }
 
 impl TimerSettings {
+    pub fn with_test_durations(
+        mut self,
+        focus_seconds: u32,
+        short_break_seconds: u32,
+        long_break_seconds: u32,
+    ) -> Result<Self, String> {
+        if focus_seconds == 0 || short_break_seconds == 0 || long_break_seconds == 0 {
+            return Err("Test timer durations must be positive.".into());
+        }
+        self.test_duration_seconds = Some(TestTimerDurations {
+            focus: focus_seconds,
+            short_break: short_break_seconds,
+            long_break: long_break_seconds,
+        });
+        Ok(self)
+    }
+
     pub fn validate(self) -> Result<Self, String> {
         if !(1..=120).contains(&self.focus_minutes) {
             return Err("Focus duration must be between 1 and 120 minutes.".into());
@@ -96,6 +123,13 @@ impl TimerSettings {
     }
 
     pub fn duration_seconds(self, mode: TimerMode) -> u32 {
+        if let Some(test) = self.test_duration_seconds {
+            return match mode {
+                TimerMode::Focus => test.focus,
+                TimerMode::ShortBreak => test.short_break,
+                TimerMode::LongBreak => test.long_break,
+            };
+        }
         match mode {
             TimerMode::Focus => self.focus_minutes * 60,
             TimerMode::ShortBreak => self.break_minutes * 60,
@@ -311,5 +345,24 @@ mod tests {
             TimerMode::from_db_value("long_break"),
             Ok(TimerMode::LongBreak)
         );
+    }
+
+    #[test]
+    fn smoke_durations_are_explicit_and_do_not_change_production_defaults() {
+        let production = TimerSettings::default();
+        let smoke = production
+            .with_test_durations(10, 5, 5)
+            .expect("smoke timer");
+
+        assert_eq!(production.duration_seconds(TimerMode::Focus), 1_500);
+        assert_eq!(production.duration_seconds(TimerMode::ShortBreak), 300);
+        assert_eq!(production.duration_seconds(TimerMode::LongBreak), 900);
+        assert_eq!(smoke.duration_seconds(TimerMode::Focus), 10);
+        assert_eq!(smoke.duration_seconds(TimerMode::ShortBreak), 5);
+        assert_eq!(smoke.duration_seconds(TimerMode::LongBreak), 5);
+        assert!(serde_json::to_value(smoke)
+            .expect("serialize")
+            .get("testDurationSeconds")
+            .is_none());
     }
 }

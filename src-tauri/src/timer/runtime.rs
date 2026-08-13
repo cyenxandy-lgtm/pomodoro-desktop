@@ -566,6 +566,7 @@ mod tests {
             long_break_interval: 2,
             auto_start_break: false,
             auto_start_focus: false,
+            test_duration_seconds: None,
         }
     }
 

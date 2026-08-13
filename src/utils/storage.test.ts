@@ -3,6 +3,9 @@ import type { StorageLike } from './storage'
 import {
   LEGACY_STORAGE_KEY,
   STORAGE_KEY,
+  TEST_LEGACY_STORAGE_KEY,
+  TEST_STORAGE_KEY,
+  getStorageKeys,
   loadPersistedState,
   migrateLegacyState,
   savePersistedState,
@@ -159,5 +162,38 @@ describe('storage', () => {
       ok: false,
       error: { operation: 'write', key: STORAGE_KEY, cause: error },
     })
+  })
+
+  it('keeps production storage keys unchanged and isolates the test profile', () => {
+    const storage = new MemoryStorage()
+    const production = loadPersistedState(storage, false)
+    production.settings.focusMinutes = 45
+    savePersistedState(production, storage, false)
+
+    const test = loadPersistedState(storage, true)
+    test.settings.focusMinutes = 10
+    savePersistedState(test, storage, true)
+
+    expect(getStorageKeys(false)).toEqual({
+      current: STORAGE_KEY,
+      legacy: LEGACY_STORAGE_KEY,
+    })
+    expect(getStorageKeys(true)).toEqual({
+      current: TEST_STORAGE_KEY,
+      legacy: TEST_LEGACY_STORAGE_KEY,
+    })
+    expect(loadPersistedState(storage, false).settings.focusMinutes).toBe(45)
+    expect(loadPersistedState(storage, true).settings.focusMinutes).toBe(10)
+  })
+
+  it('does not migrate production legacy state into the test profile', () => {
+    const storage = new MemoryStorage()
+    storage.values.set(LEGACY_STORAGE_KEY, JSON.stringify({ completedPomodoros: 8 }))
+
+    expect(Object.values(loadPersistedState(storage, true).dailyRecords))
+      .toEqual(expect.arrayContaining([
+        expect.objectContaining({ completedPomodoros: 0 }),
+      ]))
+    expect(storage.values.has(TEST_STORAGE_KEY)).toBe(false)
   })
 })

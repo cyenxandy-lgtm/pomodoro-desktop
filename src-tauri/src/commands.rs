@@ -1,3 +1,4 @@
+use crate::data_profile::DataProfile;
 use crate::db::CreateSessionResult;
 use crate::desktop::DesktopLifecycle;
 use crate::shortcuts::{ShortcutManager, ShortcutStatus};
@@ -7,6 +8,34 @@ use crate::timer::{
 };
 use crate::window_state::WindowManager;
 use tauri::{AppHandle, State};
+
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeProfile {
+    test_profile: bool,
+    smoke_timer: bool,
+    smoke_autostart: bool,
+}
+
+#[tauri::command]
+pub fn runtime_get_profile(data_profile: State<'_, DataProfile>) -> RuntimeProfile {
+    RuntimeProfile {
+        test_profile: data_profile.is_test(),
+        smoke_timer: data_profile.smoke_timer(),
+        smoke_autostart: data_profile.smoke_autostart(),
+    }
+}
+
+fn apply_test_timer(
+    data_profile: &DataProfile,
+    settings: TimerSettings,
+) -> Result<TimerSettings, String> {
+    if data_profile.smoke_timer() {
+        settings.with_test_durations(10, 5, 5)
+    } else {
+        Ok(settings)
+    }
+}
 
 #[tauri::command]
 pub fn desktop_configure_lifecycle(
@@ -35,12 +64,20 @@ pub fn desktop_configure_productivity(
 #[tauri::command]
 pub fn timer_initialize(
     manager: State<'_, TimerManager>,
+    data_profile: State<'_, DataProfile>,
     settings: TimerSettings,
     sound_enabled: bool,
     sound_volume: f32,
     desktop_notifications: bool,
 ) -> Result<TimerSnapshot, String> {
-    manager.initialize(settings, sound_enabled, sound_volume, desktop_notifications)
+    let settings = apply_test_timer(&data_profile, settings)?;
+    let suppress_effects = data_profile.smoke_autostart();
+    manager.initialize(
+        settings,
+        sound_enabled && !suppress_effects,
+        sound_volume,
+        desktop_notifications && !suppress_effects,
+    )
 }
 
 #[tauri::command]
@@ -51,23 +88,29 @@ pub fn timer_get_snapshot(manager: State<'_, TimerManager>) -> Result<TimerSnaps
 #[tauri::command]
 pub fn timer_configure(
     manager: State<'_, TimerManager>,
+    data_profile: State<'_, DataProfile>,
     settings: TimerSettings,
 ) -> Result<TimerSnapshot, String> {
-    manager.configure(settings)
+    manager.configure(apply_test_timer(&data_profile, settings)?)
 }
 
 #[tauri::command]
 pub fn timer_configure_sound(
     manager: State<'_, TimerManager>,
+    data_profile: State<'_, DataProfile>,
     enabled: bool,
     volume: f32,
 ) -> Result<(), String> {
-    manager.configure_sound(enabled, volume)
+    manager.configure_sound(enabled && !data_profile.smoke_autostart(), volume)
 }
 
 #[tauri::command]
-pub fn timer_configure_notifications(manager: State<'_, TimerManager>, enabled: bool) {
-    manager.configure_notifications(enabled);
+pub fn timer_configure_notifications(
+    manager: State<'_, TimerManager>,
+    data_profile: State<'_, DataProfile>,
+    enabled: bool,
+) {
+    manager.configure_notifications(enabled && !data_profile.smoke_autostart());
 }
 
 #[tauri::command]

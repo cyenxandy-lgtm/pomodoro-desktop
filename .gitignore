@@ -25,6 +25,7 @@ Pomodoro
 !.env.example
 
 # Runtime data
+.test-data/
 *.sqlite
 *.sqlite3
 *.db
