@@ -12,6 +12,7 @@ Built with Tauri 2 + React + TypeScript + Rust.
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=20232a)
 ![Rust](https://img.shields.io/badge/Rust-2021-000000?logo=rust&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows&logoColor=white)
+[![Download](https://img.shields.io/badge/Download-Windows%20x64-0078D4?logo=windows&logoColor=white)](https://github.com/cyenxandy-lgtm/pomodoro-desktop/releases/download/v0.4.0/Pomodoro_0.4.0_x64-setup.exe)
 
 _English version coming later._
 
@@ -72,9 +73,19 @@ _English version coming later._
 
 ## 📦 下载
 
-当前最新稳定版本：[`v0.4.0`](https://github.com/cyenxandy-lgtm/pomodoro-desktop/tree/v0.4.0)
+当前最新稳定版本：**v0.4.0**
 
-Windows 安装包将在 [GitHub Releases](https://github.com/cyenxandy-lgtm/pomodoro-desktop/releases) 中提供。当前尚未创建正式 Release，请勿将源码归档当作安装包。
+### Windows
+
+[⬇️ 下载 Pomodoro Desktop v0.4.0 (Windows x64)](https://github.com/cyenxandy-lgtm/pomodoro-desktop/releases/download/v0.4.0/Pomodoro_0.4.0_x64-setup.exe)
+
+公开发行格式：Windows NSIS Installer
+
+SHA-256：
+
+`6EF22F0DCDF1AE421163EF04918EB0BD01E64CD4C8BF2378333BC70FEB32BF7F`
+
+[查看 v0.4.0 Release Notes](https://github.com/cyenxandy-lgtm/pomodoro-desktop/releases/tag/v0.4.0)
 
 ## 💻 系统要求
 
