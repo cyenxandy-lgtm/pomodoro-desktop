@@ -100,6 +100,35 @@ describe('storage', () => {
     expect(migrated.desktopNotifications).toBe(true)
     expect(migrated.closeToTray).toBe(true)
     expect(migrated.minimizeToTray).toBe(false)
+    expect(migrated.globalShortcutsEnabled).toBe(true)
+    expect(migrated.alwaysOnTop).toBe(false)
+    expect(migrated.rememberWindowPosition).toBe(true)
+    expect(migrated.compactMode).toBe(false)
+  })
+
+  it('adds Phase 3B defaults without overwriting Phase 3A preferences', () => {
+    const storage = new MemoryStorage()
+    storage.values.set(STORAGE_KEY, JSON.stringify({
+      version: 2,
+      settings: { focusMinutes: 45, breakMinutes: 10 },
+      desktopNotifications: false,
+      closeToTray: false,
+      minimizeToTray: true,
+    }))
+
+    const migrated = loadPersistedState(storage)
+
+    expect(migrated).toMatchObject({
+      version: 3,
+      desktopNotifications: false,
+      closeToTray: false,
+      minimizeToTray: true,
+      globalShortcutsEnabled: true,
+      alwaysOnTop: false,
+      rememberWindowPosition: true,
+      compactMode: false,
+    })
+    expect(migrated.settings).toMatchObject({ focusMinutes: 45, breakMinutes: 10 })
   })
 
   it('migrates V1 into V2 without deleting the legacy source', () => {

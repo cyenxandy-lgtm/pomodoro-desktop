@@ -10,12 +10,19 @@ interface SettingsPanelProps {
   desktopNotifications: boolean
   closeToTray: boolean
   minimizeToTray: boolean
+  globalShortcutsEnabled: boolean
+  alwaysOnTop: boolean
+  rememberWindowPosition: boolean
+  shortcutUnavailable: string[]
   onChange: (settings: Partial<TimerSettings>) => void
   onSoundEnabledChange: (enabled: boolean) => void
   onVolumeChange: (volume: number) => void
   onDesktopNotificationsChange: (enabled: boolean) => void
   onCloseToTrayChange: (enabled: boolean) => void
   onMinimizeToTrayChange: (enabled: boolean) => void
+  onGlobalShortcutsEnabledChange: (enabled: boolean) => void
+  onAlwaysOnTopChange: (enabled: boolean) => void
+  onRememberWindowPositionChange: (enabled: boolean) => void
   onTestSound: () => void
 }
 
@@ -94,12 +101,19 @@ export const SettingsPanel = ({
   desktopNotifications,
   closeToTray,
   minimizeToTray,
+  globalShortcutsEnabled,
+  alwaysOnTop,
+  rememberWindowPosition,
+  shortcutUnavailable,
   onChange,
   onSoundEnabledChange,
   onVolumeChange,
   onDesktopNotificationsChange,
   onCloseToTrayChange,
   onMinimizeToTrayChange,
+  onGlobalShortcutsEnabledChange,
+  onAlwaysOnTopChange,
+  onRememberWindowPositionChange,
   onTestSound,
 }: SettingsPanelProps) => {
   const [focusValue, setFocusValue] = useState(String(settings.focusMinutes))
@@ -234,13 +248,20 @@ export const SettingsPanel = ({
         onTest={onTestSound}
       />
 
-      <div className="preference-list" aria-label="桌面设置">
+      <div className="preference-list" aria-label="通知设置">
         <ToggleSetting
           label="桌面通知"
           hint="Timer 完成后发送 Windows 通知"
           checked={desktopNotifications}
           onChange={onDesktopNotificationsChange}
         />
+      </div>
+
+      <div className="settings-section-heading">
+        <p className="eyebrow">Desktop</p>
+        <strong>桌面体验</strong>
+      </div>
+      <div className="preference-list desktop-preferences" aria-label="桌面设置">
         <ToggleSetting
           label="关闭到托盘"
           hint="关闭主窗口时保持 Timer 运行"
@@ -253,7 +274,46 @@ export const SettingsPanel = ({
           checked={minimizeToTray}
           onChange={onMinimizeToTrayChange}
         />
+        <ToggleSetting
+          label="始终置顶"
+          hint="让 Pomodoro 保持在普通窗口上方"
+          checked={alwaysOnTop}
+          onChange={onAlwaysOnTopChange}
+        />
+        <ToggleSetting
+          label="记住窗口位置"
+          hint="下次启动恢复位置和大小"
+          checked={rememberWindowPosition}
+          onChange={onRememberWindowPositionChange}
+        />
+        <ToggleSetting
+          label="全局快捷键"
+          hint="在其他应用中控制 Timer"
+          checked={globalShortcutsEnabled}
+          onChange={onGlobalShortcutsEnabledChange}
+        />
       </div>
+
+      {globalShortcutsEnabled && (
+        <div className="shortcut-list" aria-label="快捷键列表">
+          {[
+            ['开始 / 暂停', 'Ctrl + Alt + Space'],
+            ['重置', 'Ctrl + Alt + R'],
+            ['跳过', 'Ctrl + Alt + S'],
+            ['显示 / 隐藏', 'Ctrl + Alt + P'],
+          ].map(([label, accelerator]) => (
+            <div className="shortcut-row" key={accelerator}>
+              <span>{label}</span>
+              <kbd className={shortcutUnavailable.includes(accelerator.replaceAll(' ', '')) ? 'unavailable' : ''}>
+                {accelerator}
+              </kbd>
+            </div>
+          ))}
+          {shortcutUnavailable.length > 0 && (
+            <p className="shortcut-warning" role="status">部分快捷键当前被其他程序占用</p>
+          )}
+        </div>
+      )}
 
       <div className="settings-note">
         <span className="note-dot" />

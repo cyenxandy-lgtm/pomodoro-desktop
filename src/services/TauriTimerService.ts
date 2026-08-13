@@ -20,6 +20,18 @@ export interface TauriBridge {
   listen<T>(event: string, listener: (event: TauriEvent<T>) => void): Promise<() => void>
 }
 
+export interface DesktopProductivitySettings {
+  globalShortcutsEnabled: boolean
+  alwaysOnTop: boolean
+  rememberWindowPosition: boolean
+  compactMode: boolean
+}
+
+export interface ShortcutStatus {
+  enabled: boolean
+  unavailable: string[]
+}
+
 interface TauriTimerServiceOptions {
   settings: TimerSettings
   soundEnabled: boolean
@@ -124,6 +136,13 @@ export class TauriTimerService implements TimerService {
       closeToTray,
       minimizeToTray,
     })
+  }
+
+  configureProductivity = async (
+    settings: DesktopProductivitySettings,
+  ): Promise<ShortcutStatus> => {
+    await this.ensureReady()
+    return this.bridge.invoke<ShortcutStatus>('desktop_configure_productivity', { ...settings })
   }
 
   selectMode = async (mode: TimerMode): Promise<void> => {

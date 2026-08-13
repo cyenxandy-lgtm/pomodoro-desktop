@@ -20,6 +20,9 @@ class FakeBridge implements TauriBridge {
 
   invoke = async <T>(command: string, args?: Record<string, unknown>): Promise<T> => {
     this.calls.push({ command, args })
+    if (command === 'desktop_configure_productivity') {
+      return { enabled: true, unavailable: [] } as T
+    }
     return initialSnapshot as T
   }
 
@@ -125,6 +128,12 @@ describe('TauriTimerService', () => {
     await service.configureSound(false, 0.2)
     await service.configureNotifications(false)
     await service.configureLifecycle(true, false)
+    await service.configureProductivity({
+      globalShortcutsEnabled: true,
+      alwaysOnTop: true,
+      rememberWindowPosition: true,
+      compactMode: false,
+    })
 
     expect(bridge.calls.slice(1).map(({ command }) => command)).toEqual([
       'timer_start',
@@ -138,6 +147,7 @@ describe('TauriTimerService', () => {
       'timer_configure_sound',
       'timer_configure_notifications',
       'desktop_configure_lifecycle',
+      'desktop_configure_productivity',
     ])
     expect(bridge.calls[6].args).toEqual({ mode: 'shortBreak' })
   })

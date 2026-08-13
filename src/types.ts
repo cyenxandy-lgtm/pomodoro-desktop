@@ -19,7 +19,7 @@ export interface DailyRecord {
 export type DailyRecords = Record<string, DailyRecord>
 
 export interface PersistedState {
-  version: 2
+  version: 3
   settings: TimerSettings
   /** Aggregate-only V1/V2 history. Never convert it into fabricated sessions. */
   dailyRecords: DailyRecords
@@ -28,4 +28,8 @@ export interface PersistedState {
   desktopNotifications: boolean
   closeToTray: boolean
   minimizeToTray: boolean
+  globalShortcutsEnabled: boolean
+  alwaysOnTop: boolean
+  rememberWindowPosition: boolean
+  compactMode: boolean
 }

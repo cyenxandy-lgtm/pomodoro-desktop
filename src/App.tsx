@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DailyStats } from './components/DailyStats'
+import { CompactTimer } from './components/CompactTimer'
 import { History } from './components/History'
 import { Icon } from './components/Icon'
 import { ModeSelector } from './components/ModeSelector'
@@ -44,6 +45,7 @@ function App() {
   }
   const runtime = runtimeRef.current
   const [view, setView] = useState<AppView>('timer')
+  const [shortcutUnavailable, setShortcutUnavailable] = useState<string[]>([])
   const todayKey = useTodayKey()
   const { dailyRecords: sessionDailyRecords, refresh: refreshSessionDailyRecords } = (
     useSessionDailyRecords(runtime.sessionRepository)
@@ -109,6 +111,26 @@ function App() {
       })
   }, [persistedState.closeToTray, persistedState.minimizeToTray, runtime])
 
+  useEffect(() => {
+    void runtime
+      .configureProductivity({
+        globalShortcutsEnabled: persistedState.globalShortcutsEnabled,
+        alwaysOnTop: persistedState.alwaysOnTop,
+        rememberWindowPosition: persistedState.rememberWindowPosition,
+        compactMode: persistedState.compactMode,
+      })
+      .then((status) => setShortcutUnavailable(status.unavailable))
+      .catch((error: unknown) => {
+        logger.error('Failed to configure desktop productivity settings.', error)
+      })
+  }, [
+    persistedState.alwaysOnTop,
+    persistedState.compactMode,
+    persistedState.globalShortcutsEnabled,
+    persistedState.rememberWindowPosition,
+    runtime,
+  ])
+
   const updateSettings = useCallback((settings: Partial<TimerSettings>) => {
     setPersistedState((current) => ({
       ...current,
@@ -136,6 +158,22 @@ function App() {
     setPersistedState((current) => ({ ...current, minimizeToTray }))
   }, [setPersistedState])
 
+  const updateGlobalShortcutsEnabled = useCallback((globalShortcutsEnabled: boolean) => {
+    setPersistedState((current) => ({ ...current, globalShortcutsEnabled }))
+  }, [setPersistedState])
+
+  const updateAlwaysOnTop = useCallback((alwaysOnTop: boolean) => {
+    setPersistedState((current) => ({ ...current, alwaysOnTop }))
+  }, [setPersistedState])
+
+  const updateRememberWindowPosition = useCallback((rememberWindowPosition: boolean) => {
+    setPersistedState((current) => ({ ...current, rememberWindowPosition }))
+  }, [setPersistedState])
+
+  const updateCompactMode = useCallback((compactMode: boolean) => {
+    setPersistedState((current) => ({ ...current, compactMode }))
+  }, [setPersistedState])
+
   const handleModeSelect = (mode: TimerMode) => {
     timer.selectMode(mode)
     setView('timer')
@@ -147,13 +185,33 @@ function App() {
     : timer.mode === 'longBreak' ? 'LONG BREAK' : 'SHORT BREAK'
 
   return (
-    <div className={`app-shell ${timer.mode === 'focus' ? 'is-focus' : 'is-break'}`}>
+    <div className={`app-shell ${timer.mode === 'focus' ? 'is-focus' : 'is-break'} ${persistedState.compactMode ? 'is-compact' : ''}`}>
+      {persistedState.compactMode ? (
+        <CompactTimer
+          mode={timer.mode}
+          status={timer.status}
+          remainingSeconds={timer.remainingSeconds}
+          onStart={timer.start}
+          onPause={timer.pause}
+          onResume={timer.resume}
+          onReset={timer.reset}
+          onSkip={timer.skip}
+          onExpand={() => updateCompactMode(false)}
+        />
+      ) : (
+        <>
       <header className="app-header">
         <div className="brand">
           <span className="brand-mark" aria-hidden="true">🍅</span>
           <span>Pomodoro</span>
         </div>
-        <span className="date-label">{formatDate(todayKey)}</span>
+        <div className="header-actions">
+          <span className="date-label">{formatDate(todayKey)}</span>
+          <button className="compact-button" type="button" onClick={() => updateCompactMode(true)} aria-label="进入紧凑模式">
+            <Icon name="compact" size={15} />
+            Compact
+          </button>
+        </div>
       </header>
 
       {hasStorageWarning && (
@@ -207,12 +265,19 @@ function App() {
             desktopNotifications={persistedState.desktopNotifications}
             closeToTray={persistedState.closeToTray}
             minimizeToTray={persistedState.minimizeToTray}
+            globalShortcutsEnabled={persistedState.globalShortcutsEnabled}
+            alwaysOnTop={persistedState.alwaysOnTop}
+            rememberWindowPosition={persistedState.rememberWindowPosition}
+            shortcutUnavailable={shortcutUnavailable}
             onChange={updateSettings}
             onSoundEnabledChange={updateSoundEnabled}
             onVolumeChange={updateVolume}
             onDesktopNotificationsChange={updateDesktopNotifications}
             onCloseToTrayChange={updateCloseToTray}
             onMinimizeToTrayChange={updateMinimizeToTray}
+            onGlobalShortcutsEnabledChange={updateGlobalShortcutsEnabled}
+            onAlwaysOnTopChange={updateAlwaysOnTop}
+            onRememberWindowPositionChange={updateRememberWindowPosition}
             onTestSound={playCompletionSound}
           />
         </main>
@@ -238,6 +303,8 @@ function App() {
           设置
         </button>
       </nav>
+        </>
+      )}
     </div>
   )
 }

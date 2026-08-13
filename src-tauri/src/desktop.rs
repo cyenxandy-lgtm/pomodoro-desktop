@@ -1,8 +1,9 @@
 use crate::timer::{TimerManager, TimerMode, TimerSnapshot};
+use crate::window_state::WindowManager;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
-use tauri::{App, AppHandle, Manager};
+use tauri::{App, AppHandle, Manager, Runtime};
 
 const TRAY_TOGGLE: &str = "timer-toggle";
 const TRAY_RESET: &str = "timer-reset";
@@ -75,13 +76,16 @@ impl TrayController {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TrayTimerAction {
+pub enum DesktopAction {
     StartPause,
     Reset,
     Skip,
+    ToggleWindow,
+    ShowWindow,
+    Quit,
 }
 
-pub trait TrayTimerController {
+pub trait DesktopTimerController {
     fn snapshot(&self) -> Result<TimerSnapshot, String>;
     fn start(&self) -> Result<TimerSnapshot, String>;
     fn pause(&self) -> Result<TimerSnapshot, String>;
@@ -90,7 +94,27 @@ pub trait TrayTimerController {
     fn skip(&self) -> Result<TimerSnapshot, String>;
 }
 
-impl TrayTimerController for TimerManager {
+pub trait DesktopWindowController {
+    fn toggle_window(&self) -> Result<(), String>;
+    fn show_window(&self) -> Result<(), String>;
+}
+
+struct TauriWindowController<'a, R: Runtime> {
+    app: &'a AppHandle<R>,
+}
+
+impl<R: Runtime> DesktopWindowController for TauriWindowController<'_, R> {
+    fn toggle_window(&self) -> Result<(), String> {
+        toggle_main_window(self.app)
+    }
+
+    fn show_window(&self) -> Result<(), String> {
+        show_main_window(self.app);
+        Ok(())
+    }
+}
+
+impl DesktopTimerController for TimerManager {
     fn snapshot(&self) -> Result<TimerSnapshot, String> {
         TimerManager::snapshot(self)
     }
@@ -117,17 +141,53 @@ impl TrayTimerController for TimerManager {
 }
 
 pub fn execute_timer_action(
-    controller: &impl TrayTimerController,
-    action: TrayTimerAction,
+    controller: &impl DesktopTimerController,
+    action: DesktopAction,
 ) -> Result<TimerSnapshot, String> {
     match action {
-        TrayTimerAction::StartPause => match controller.snapshot()?.status {
+        DesktopAction::StartPause => match controller.snapshot()?.status {
             crate::timer::domain::TimerStatus::Running => controller.pause(),
             crate::timer::domain::TimerStatus::Paused => controller.resume(),
             crate::timer::domain::TimerStatus::Idle => controller.start(),
         },
-        TrayTimerAction::Reset => controller.reset(),
-        TrayTimerAction::Skip => controller.skip(),
+        DesktopAction::Reset => controller.reset(),
+        DesktopAction::Skip => controller.skip(),
+        _ => Err("Action does not target the timer".to_string()),
+    }
+}
+
+pub fn execute_window_action(
+    controller: &impl DesktopWindowController,
+    action: DesktopAction,
+) -> Result<(), String> {
+    match action {
+        DesktopAction::ToggleWindow => controller.toggle_window(),
+        DesktopAction::ShowWindow => controller.show_window(),
+        _ => Err("Action does not target the desktop window".to_string()),
+    }
+}
+
+pub fn dispatch_desktop_action<R: Runtime>(
+    app: &AppHandle<R>,
+    action: DesktopAction,
+) -> Result<(), String> {
+    match action {
+        DesktopAction::StartPause | DesktopAction::Reset | DesktopAction::Skip => {
+            let manager = app.state::<TimerManager>();
+            execute_timer_action(&*manager, action).map(|_| ())
+        }
+        DesktopAction::ToggleWindow | DesktopAction::ShowWindow => {
+            execute_window_action(&TauriWindowController { app }, action)
+        }
+        DesktopAction::Quit => {
+            if let Some(window_manager) = app.try_state::<WindowManager>() {
+                window_manager.capture_and_flush(app);
+            }
+            app.state::<DesktopLifecycle>().mark_quitting();
+            app.state::<TimerManager>().snapshot()?;
+            app.exit(0);
+            Ok(())
+        }
     }
 }
 
@@ -170,7 +230,7 @@ pub fn create_tray(app: &App) -> tauri::Result<TrayController> {
     })
 }
 
-pub fn show_main_window(app: &AppHandle) {
+pub fn show_main_window<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
         if let Err(error) = window.unminimize() {
             log::warn!("Failed to restore Pomodoro window: {error}");
@@ -184,32 +244,34 @@ pub fn show_main_window(app: &AppHandle) {
     }
 }
 
+fn toggle_main_window<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
+    let Some(window) = app.get_webview_window("main") else {
+        return Err("Main window is unavailable".to_string());
+    };
+    if window.is_visible().map_err(|error| error.to_string())? {
+        if let Some(window_manager) = app.try_state::<WindowManager>() {
+            window_manager.capture_and_flush(app);
+        }
+        window.hide().map_err(|error| error.to_string())
+    } else {
+        show_main_window(app);
+        Ok(())
+    }
+}
+
 fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     let action = match event.id().as_ref() {
-        TRAY_TOGGLE => Some(TrayTimerAction::StartPause),
-        TRAY_RESET => Some(TrayTimerAction::Reset),
-        TRAY_SKIP => Some(TrayTimerAction::Skip),
-        TRAY_OPEN => {
-            show_main_window(app);
-            None
-        }
-        TRAY_QUIT => {
-            let lifecycle = app.state::<DesktopLifecycle>();
-            lifecycle.mark_quitting();
-            let manager = app.state::<TimerManager>();
-            if let Err(error) = manager.snapshot() {
-                log::error!("Final timer persistence check failed: {error}");
-            }
-            app.exit(0);
-            None
-        }
+        TRAY_TOGGLE => Some(DesktopAction::StartPause),
+        TRAY_RESET => Some(DesktopAction::Reset),
+        TRAY_SKIP => Some(DesktopAction::Skip),
+        TRAY_OPEN => Some(DesktopAction::ShowWindow),
+        TRAY_QUIT => Some(DesktopAction::Quit),
         _ => None,
     };
 
     if let Some(action) = action {
-        let manager = app.state::<TimerManager>();
-        if let Err(error) = execute_timer_action(&*manager, action) {
-            log::error!("Tray timer action failed: {error}");
+        if let Err(error) = dispatch_desktop_action(app, action) {
+            log::error!("Tray desktop action failed: {error}");
         }
     }
 }
@@ -237,6 +299,23 @@ mod tests {
         calls: Mutex<Vec<&'static str>>,
     }
 
+    #[derive(Default)]
+    struct FakeWindowController {
+        calls: Mutex<Vec<&'static str>>,
+    }
+
+    impl DesktopWindowController for FakeWindowController {
+        fn toggle_window(&self) -> Result<(), String> {
+            self.calls.lock().expect("calls").push("toggle");
+            Ok(())
+        }
+
+        fn show_window(&self) -> Result<(), String> {
+            self.calls.lock().expect("calls").push("show");
+            Ok(())
+        }
+    }
+
     impl FakeController {
         fn new(status: TimerStatus) -> Self {
             Self {
@@ -255,7 +334,7 @@ mod tests {
         }
     }
 
-    impl TrayTimerController for FakeController {
+    impl DesktopTimerController for FakeController {
         fn snapshot(&self) -> Result<TimerSnapshot, String> {
             Ok(TimerSnapshot {
                 status: *self.status.lock().expect("status"),
@@ -292,7 +371,7 @@ mod tests {
             (TimerStatus::Paused, "resume"),
         ] {
             let controller = FakeController::new(status);
-            execute_timer_action(&controller, TrayTimerAction::StartPause).expect("action");
+            execute_timer_action(&controller, DesktopAction::StartPause).expect("action");
             assert_eq!(
                 controller.calls.lock().expect("calls").as_slice(),
                 &[expected]
@@ -303,11 +382,22 @@ mod tests {
     #[test]
     fn reset_and_skip_actions_delegate_directly() {
         let controller = FakeController::new(TimerStatus::Running);
-        execute_timer_action(&controller, TrayTimerAction::Reset).expect("reset");
-        execute_timer_action(&controller, TrayTimerAction::Skip).expect("skip");
+        execute_timer_action(&controller, DesktopAction::Reset).expect("reset");
+        execute_timer_action(&controller, DesktopAction::Skip).expect("skip");
         assert_eq!(
             controller.calls.lock().expect("calls").as_slice(),
             &["reset", "skip"]
+        );
+    }
+
+    #[test]
+    fn window_actions_delegate_to_the_desktop_window_controller() {
+        let controller = FakeWindowController::default();
+        execute_window_action(&controller, DesktopAction::ToggleWindow).expect("toggle");
+        execute_window_action(&controller, DesktopAction::ShowWindow).expect("show");
+        assert_eq!(
+            controller.calls.lock().expect("calls").as_slice(),
+            &["toggle", "show"]
         );
     }
 }
