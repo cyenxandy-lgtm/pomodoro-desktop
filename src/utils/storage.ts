@@ -2,9 +2,12 @@ import type { DailyRecord, DailyRecords, PersistedState, TimerSettings } from '.
 import { getLocalDateKey, isDateKey } from './localDate'
 import { logger } from './logger'
 import { clampVolume, DEFAULT_SOUND_ENABLED, DEFAULT_VOLUME } from './sound'
+import { isTestProfile } from '../services/runtimeProfile'
 
 export const STORAGE_KEY = 'pomodoro-state-v2'
 export const LEGACY_STORAGE_KEY = 'pomodoro-state-v1'
+export const TEST_STORAGE_KEY = `${STORAGE_KEY}-test`
+export const TEST_LEGACY_STORAGE_KEY = `${LEGACY_STORAGE_KEY}-test`
 export const DEFAULT_SETTINGS: TimerSettings = {
   focusMinutes: 25,
   breakMinutes: 5,
@@ -180,14 +183,21 @@ export const getDailyRecord = (records: DailyRecords, date = getTodayKey()): Dai
   records[date] ?? { date, completedPomodoros: 0, focusMinutes: 0 }
 )
 
-const resolveStorage = (storage?: StorageLike): StorageResult<StorageLike> => {
+export const getStorageKeys = (testProfile = isTestProfile()): {
+  current: string
+  legacy: string
+} => (testProfile
+  ? { current: TEST_STORAGE_KEY, legacy: TEST_LEGACY_STORAGE_KEY }
+  : { current: STORAGE_KEY, legacy: LEGACY_STORAGE_KEY })
+
+const resolveStorage = (key: string, storage?: StorageLike): StorageResult<StorageLike> => {
   if (storage) return { ok: true, value: storage }
   try {
     return { ok: true, value: window.localStorage }
   } catch (cause: unknown) {
     return {
       ok: false,
-      error: { operation: 'access', key: STORAGE_KEY, cause },
+      error: { operation: 'access', key, cause },
     }
   }
 }
@@ -213,14 +223,18 @@ const logStorageFailure = (failure: StorageFailure): void => {
   logger.error(`Storage ${failure.operation} failed for ${failure.key}.`, failure.cause)
 }
 
-export const loadPersistedState = (storage?: StorageLike): PersistedState => {
-  const resolvedStorage = resolveStorage(storage)
+export const loadPersistedState = (
+  storage?: StorageLike,
+  testProfile = isTestProfile(),
+): PersistedState => {
+  const keys = getStorageKeys(testProfile)
+  const resolvedStorage = resolveStorage(keys.current, storage)
   if (!resolvedStorage.ok) {
     logStorageFailure(resolvedStorage.error)
     return createDefaultState()
   }
 
-  const currentResult = readItem(resolvedStorage.value, STORAGE_KEY)
+  const currentResult = readItem(resolvedStorage.value, keys.current)
   if (!currentResult.ok) logStorageFailure(currentResult.error)
   const currentRaw = currentResult.ok ? currentResult.value : null
 
@@ -228,12 +242,12 @@ export const loadPersistedState = (storage?: StorageLike): PersistedState => {
     try {
       return normalizeState(JSON.parse(currentRaw))
     } catch (cause: unknown) {
-      logStorageFailure({ operation: 'parse', key: STORAGE_KEY, cause })
+      logStorageFailure({ operation: 'parse', key: keys.current, cause })
       // Try the legacy record before falling back to empty state.
     }
   }
 
-  const legacyResult = readItem(resolvedStorage.value, LEGACY_STORAGE_KEY)
+  const legacyResult = readItem(resolvedStorage.value, keys.legacy)
   if (!legacyResult.ok) {
     logStorageFailure(legacyResult.error)
     return createDefaultState()
@@ -243,11 +257,11 @@ export const loadPersistedState = (storage?: StorageLike): PersistedState => {
   if (legacyRaw) {
     try {
       const migrated = migrateLegacyState(JSON.parse(legacyRaw))
-      const writeResult = writeItem(resolvedStorage.value, STORAGE_KEY, JSON.stringify(migrated))
+      const writeResult = writeItem(resolvedStorage.value, keys.current, JSON.stringify(migrated))
       if (!writeResult.ok) logStorageFailure(writeResult.error)
       return migrated
     } catch (cause: unknown) {
-      logStorageFailure({ operation: 'parse', key: LEGACY_STORAGE_KEY, cause })
+      logStorageFailure({ operation: 'parse', key: keys.legacy, cause })
     }
   }
 
@@ -257,8 +271,10 @@ export const loadPersistedState = (storage?: StorageLike): PersistedState => {
 export const savePersistedState = (
   state: PersistedState,
   storage?: StorageLike,
+  testProfile = isTestProfile(),
 ): StorageResult<void> => {
-  const resolvedStorage = resolveStorage(storage)
+  const key = getStorageKeys(testProfile).current
+  const resolvedStorage = resolveStorage(key, storage)
   if (!resolvedStorage.ok) {
     logStorageFailure(resolvedStorage.error)
     return resolvedStorage
@@ -266,7 +282,7 @@ export const savePersistedState = (
 
   const result = writeItem(
     resolvedStorage.value,
-    STORAGE_KEY,
+    key,
     JSON.stringify(normalizeState(state)),
   )
   if (!result.ok) logStorageFailure(result.error)
