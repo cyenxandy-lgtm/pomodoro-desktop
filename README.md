@@ -309,3 +309,10 @@ scripts/              # Sound generation 与隔离 Test Profile
 ## 🙏 Acknowledgements
 
 Product and UX inspiration includes [Pomotroid](https://github.com/Splode/pomotroid). Pomodoro Desktop 保持独立的产品设计、视觉实现与代码架构。
+
+## 💬 Feedback
+
+发现 Bug 或有改进建议？
+
+- [GitHub Issues](https://github.com/cyenxandy-lgtm/pomodoro-desktop/issues)
+- [GitHub Discussions](https://github.com/cyenxandy-lgtm/pomodoro-desktop/discussions)
