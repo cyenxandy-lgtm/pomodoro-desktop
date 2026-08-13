@@ -1,27 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { DailyStats } from './components/DailyStats'
 import { CompactTimer } from './components/CompactTimer'
-import { History } from './components/History'
 import { Icon } from './components/Icon'
 import { ModeSelector } from './components/ModeSelector'
 import { SettingsPanel } from './components/SettingsPanel'
+import { StatisticsPage } from './components/StatisticsPage'
 import { TimerControls } from './components/TimerControls'
 import { usePersistedState } from './hooks/usePersistedState'
 import { useSound } from './hooks/useSound'
-import { useSessionDailyRecords } from './hooks/useSessionDailyRecords'
+import { useStatistics } from './hooks/useStatistics'
 import { useTimer } from './hooks/useTimer'
 import { useTodayKey } from './hooks/useTodayKey'
 import type { TimerCompletion, TimerMode, TimerSettings } from './types'
 import { TimerCompletionCoordinator } from './services/TimerCompletionCoordinator'
 import { createRuntimeServices } from './services/runtimeServices'
-import { mergeDailyRecords, recordFocusCompletion } from './utils/dailyStats'
+import { recordFocusCompletion } from './utils/dailyStats'
 import { getLocalDateKey } from './utils/localDate'
-import { getDailyRecord } from './utils/storage'
 import { formatTime } from './utils/timer'
 import { logger } from './utils/logger'
 import './App.css'
 
-type AppView = 'timer' | 'history' | 'settings'
+type AppView = 'timer' | 'statistics' | 'settings'
 
 const formatDate = (dateKey: string): string => {
   const [year, month, day] = dateKey.split('-').map(Number)
@@ -47,14 +46,13 @@ function App() {
   const [view, setView] = useState<AppView>('timer')
   const [shortcutUnavailable, setShortcutUnavailable] = useState<string[]>([])
   const todayKey = useTodayKey()
-  const { dailyRecords: sessionDailyRecords, refresh: refreshSessionDailyRecords } = (
-    useSessionDailyRecords(runtime.sessionRepository)
-  )
-  const dailyRecords = useMemo(() => mergeDailyRecords(
+  const statistics = useStatistics(
+    runtime.statisticsService,
     persistedState.dailyRecords,
-    sessionDailyRecords,
-  ), [persistedState.dailyRecords, sessionDailyRecords])
-  const todayRecord = getDailyRecord(dailyRecords, todayKey)
+    todayKey,
+  )
+  const refreshStatistics = statistics.refresh
+  const todayRecord = statistics.data.today
   const completionCoordinatorRef = useRef(new TimerCompletionCoordinator())
   const { playCompletionSound } = useSound({
     enabled: persistedState.soundEnabled,
@@ -63,7 +61,7 @@ function App() {
 
   const handleTimerComplete = useCallback((completion: TimerCompletion) => {
     if (runtime.isNative) {
-      void refreshSessionDailyRecords()
+      void refreshStatistics()
       return
     }
     completionCoordinatorRef.current.handle(completion, {
@@ -79,7 +77,7 @@ function App() {
         }))
       },
     })
-  }, [playCompletionSound, refreshSessionDailyRecords, runtime.isNative, setPersistedState])
+  }, [playCompletionSound, refreshStatistics, runtime.isNative, setPersistedState])
 
   const timer = useTimer({
     settings: persistedState.settings,
@@ -252,9 +250,14 @@ function App() {
 
           <DailyStats completedPomodoros={todayRecord.completedPomodoros} />
         </main>
-      ) : view === 'history' ? (
-        <main className="history-page">
-          <History dailyRecords={dailyRecords} today={todayKey} />
+      ) : view === 'statistics' ? (
+        <main className="statistics-page">
+          <StatisticsPage
+            data={statistics.data}
+            loading={statistics.loading}
+            error={statistics.error}
+            onRetry={() => void refreshStatistics()}
+          />
         </main>
       ) : (
         <main className="settings-page">
@@ -287,12 +290,15 @@ function App() {
         <ModeSelector mode={timer.mode} status={timer.status} onSelect={handleModeSelect} />
         <span className="nav-divider" />
         <button
-          className={view === 'history' ? 'history-tab active' : 'history-tab'}
+          className={view === 'statistics' ? 'history-tab active' : 'history-tab'}
           type="button"
-          onClick={() => setView('history')}
+          onClick={() => {
+            setView('statistics')
+            void refreshStatistics()
+          }}
         >
           <Icon name="history" size={15} />
-          记录
+          统计
         </button>
         <button
           className={view === 'settings' ? 'settings-tab active' : 'settings-tab'}

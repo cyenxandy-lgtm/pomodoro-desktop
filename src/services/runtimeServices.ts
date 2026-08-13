@@ -3,12 +3,15 @@ import { TauriSessionRepository } from '../repositories/TauriSessionRepository'
 import { TauriTimerService } from './TauriTimerService'
 import type { DesktopProductivitySettings, ShortcutStatus } from './TauriTimerService'
 import { isTauriRuntime } from './tauriRuntime'
+import { EmptyStatisticsService, TauriStatisticsService } from './StatisticsService'
+import type { StatisticsService } from './StatisticsService'
 import { WebTimerService } from './WebTimerService'
 
 export interface RuntimeServices {
   isNative: boolean
   timerService: TimerService
   sessionRepository: TauriSessionRepository | null
+  statisticsService: StatisticsService
   configureSound(enabled: boolean, volume: number): Promise<void>
   configureNotifications(enabled: boolean): Promise<void>
   configureLifecycle(closeToTray: boolean, minimizeToTray: boolean): Promise<void>
@@ -26,6 +29,7 @@ export const createRuntimeServices = (
       isNative: false,
       timerService: new WebTimerService({ settings }),
       sessionRepository: null,
+      statisticsService: new EmptyStatisticsService(),
       configureSound: async () => undefined,
       configureNotifications: async () => undefined,
       configureLifecycle: async () => undefined,
@@ -46,6 +50,7 @@ export const createRuntimeServices = (
     isNative: true,
     timerService,
     sessionRepository: new TauriSessionRepository(),
+    statisticsService: new TauriStatisticsService(),
     configureSound: (enabled, nextVolume) => (
       timerService.configureSound(enabled, nextVolume)
     ),

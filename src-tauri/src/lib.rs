@@ -4,6 +4,7 @@ mod db;
 mod desktop;
 mod notification;
 mod shortcuts;
+mod statistics;
 mod timer;
 mod window_state;
 
@@ -12,6 +13,7 @@ use db::SqliteRepository;
 use desktop::{create_tray, DesktopLifecycle, TrayController};
 use notification::NativeNotificationService;
 use shortcuts::ShortcutManager;
+use statistics::StatisticsService;
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
 use timer::clock::{SystemClock, SystemLocalDateResolver};
@@ -114,8 +116,12 @@ pub fn run() {
             let shortcut_manager = ShortcutManager::new();
             shortcut_manager.configure(app.handle(), true);
             app.manage(shortcut_manager);
-            let repository = SqliteRepository::open(&data_directory.join("pomodoro.sqlite3"))
-                .map_err(std::io::Error::other)?;
+            let database_path = data_directory.join("pomodoro.sqlite3");
+            let statistics_repository =
+                SqliteRepository::open(&database_path).map_err(std::io::Error::other)?;
+            app.manage(StatisticsService::new(statistics_repository));
+            let repository =
+                SqliteRepository::open(&database_path).map_err(std::io::Error::other)?;
             let manager = TimerManager::new(
                 repository,
                 Arc::new(SystemClock),
@@ -153,6 +159,7 @@ pub fn run() {
             commands::session_get_by_date,
             commands::session_get_recent,
             commands::session_get_daily_records,
+            commands::statistics_get_snapshot,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Tauri application");

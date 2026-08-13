@@ -13,6 +13,22 @@ export const isDateKey = (value: unknown): value is string => (
   typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
 )
 
+export const parseLocalDateKey = (dateKey: string): Date | null => {
+  if (!isDateKey(dateKey)) return null
+  const [year, month, day] = dateKey.split('-').map(Number)
+  const date = new Date(year, month - 1, day, 12)
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+    ? date
+    : null
+}
+
+export const addLocalDays = (dateKey: string, days: number): string | null => {
+  const date = parseLocalDateKey(dateKey)
+  if (!date || !Number.isInteger(days)) return null
+  date.setDate(date.getDate() + days)
+  return getLocalDateKey(date.getTime())
+}
+
 export const millisecondsUntilNextLocalMidnight = (timestamp: number): number => {
   const now = new Date(timestamp)
   const nextMidnight = new Date(
