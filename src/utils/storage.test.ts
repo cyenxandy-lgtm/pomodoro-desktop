@@ -109,7 +109,7 @@ describe('storage', () => {
     expect(migrated.compactMode).toBe(false)
   })
 
-  it('adds Phase 3B defaults without overwriting Phase 3A preferences', () => {
+  it('adds current defaults without overwriting earlier preferences', () => {
     const storage = new MemoryStorage()
     storage.values.set(STORAGE_KEY, JSON.stringify({
       version: 2,
@@ -122,7 +122,7 @@ describe('storage', () => {
     const migrated = loadPersistedState(storage)
 
     expect(migrated).toMatchObject({
-      version: 3,
+      version: 4,
       desktopNotifications: false,
       closeToTray: false,
       minimizeToTray: true,
@@ -130,8 +130,34 @@ describe('storage', () => {
       alwaysOnTop: false,
       rememberWindowPosition: true,
       compactMode: false,
+      appearance: 'dark',
+      accent: 'rose',
     })
     expect(migrated.settings).toMatchObject({ focusMinutes: 45, breakMinutes: 10 })
+  })
+
+  it('persists valid themes and safely migrates invalid appearance values', () => {
+    const storage = new MemoryStorage()
+    storage.values.set(STORAGE_KEY, JSON.stringify({
+      version: 3,
+      appearance: 'unknown',
+      accent: 'purple',
+    }))
+
+    expect(loadPersistedState(storage)).toMatchObject({
+      version: 4,
+      appearance: 'dark',
+      accent: 'rose',
+    })
+
+    const state = loadPersistedState(storage)
+    state.appearance = 'system'
+    state.accent = 'mint'
+    savePersistedState(state, storage)
+    expect(loadPersistedState(storage)).toMatchObject({
+      appearance: 'system',
+      accent: 'mint',
+    })
   })
 
   it('migrates V1 into V2 without deleting the legacy source', () => {

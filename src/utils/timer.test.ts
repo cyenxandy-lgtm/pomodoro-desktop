@@ -20,6 +20,8 @@ describe('timer utilities', () => {
   it('formats times with stable two-digit segments', () => {
     expect(formatTime(1500)).toBe('25:00')
     expect(formatTime(1499)).toBe('24:59')
+    expect(formatTime(3600)).toBe('1:00:00')
+    expect(formatTime(7200)).toBe('2:00:00')
     expect(formatTime(0)).toBe('00:00')
     expect(formatTime(-10)).toBe('00:00')
   })

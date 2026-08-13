@@ -1,6 +1,7 @@
 import type { TimerSession } from './session'
 import type { DailyRecords } from '../types'
 import { addLocalDays, isDateKey } from '../utils/localDate'
+import { formatDuration } from '../utils/formatters'
 
 export interface DailyFocusStatistics {
   date: string
@@ -148,9 +149,5 @@ export const buildStatisticsViewModel = (
 }
 
 export const formatFocusDuration = (seconds: number): string => {
-  const minutes = Math.max(0, Math.round(seconds / 60))
-  if (minutes < 60) return `${minutes}分钟`
-  const hours = Math.floor(minutes / 60)
-  const remainder = minutes % 60
-  return remainder === 0 ? `${hours}小时` : `${hours}小时 ${remainder}分钟`
+  return formatDuration(seconds)
 }

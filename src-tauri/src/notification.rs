@@ -4,7 +4,7 @@ use tauri::plugin::PermissionState;
 use tauri_plugin_notification::NotificationExt;
 
 pub trait CompletionNotification: Send + Sync {
-    fn configure(&self, enabled: bool) -> Result<(), String>;
+    fn configure(&self, enabled: bool) -> Result<bool, String>;
     fn notify(&self, mode: TimerMode) -> Result<(), String>;
 }
 
@@ -42,12 +42,12 @@ impl NativeNotificationService {
 }
 
 impl CompletionNotification for NativeNotificationService {
-    fn configure(&self, enabled: bool) -> Result<(), String> {
+    fn configure(&self, enabled: bool) -> Result<bool, String> {
         self.enabled.store(enabled, Ordering::Release);
         if enabled {
-            let _ = self.ensure_permission()?;
+            return self.ensure_permission();
         }
-        Ok(())
+        Ok(true)
     }
 
     fn notify(&self, mode: TimerMode) -> Result<(), String> {
@@ -101,9 +101,9 @@ impl RecordingNotification {
 
 #[cfg(test)]
 impl CompletionNotification for RecordingNotification {
-    fn configure(&self, enabled: bool) -> Result<(), String> {
+    fn configure(&self, enabled: bool) -> Result<bool, String> {
         self.enabled.store(enabled, Ordering::Release);
-        Ok(())
+        Ok(!enabled || !self.denied.load(Ordering::Acquire))
     }
 
     fn notify(&self, mode: TimerMode) -> Result<(), String> {
@@ -117,5 +117,19 @@ impl CompletionNotification for RecordingNotification {
                 .push(mode);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recording_notification_reports_denied_permission_without_enabling_delivery() {
+        let notification = RecordingNotification::new();
+        notification.deny();
+
+        assert_eq!(notification.configure(true), Ok(false));
+        assert_eq!(notification.configure(false), Ok(true));
     }
 }

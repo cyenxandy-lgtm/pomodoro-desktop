@@ -133,10 +133,14 @@ impl TimerManager {
         self.shared.audio.configure(enabled, volume)
     }
 
-    pub fn configure_notifications(&self, enabled: bool) {
-        if let Err(error) = self.shared.notification.configure(enabled) {
-            log::warn!("Desktop notification configuration failed: {error}");
-        }
+    pub fn configure_notifications(&self, enabled: bool) -> bool {
+        self.shared
+            .notification
+            .configure(enabled)
+            .unwrap_or_else(|error| {
+                log::warn!("Desktop notification configuration failed: {error}");
+                false
+            })
     }
 
     pub fn snapshot(&self) -> Result<TimerSnapshot, String> {

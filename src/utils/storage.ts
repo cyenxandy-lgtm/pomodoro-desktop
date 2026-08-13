@@ -3,6 +3,7 @@ import { getLocalDateKey, isDateKey } from './localDate'
 import { logger } from './logger'
 import { clampVolume, DEFAULT_SOUND_ENABLED, DEFAULT_VOLUME } from './sound'
 import { isTestProfile } from '../services/runtimeProfile'
+import { isAccent, isAppearance } from '../domain/appearance'
 
 export const STORAGE_KEY = 'pomodoro-state-v2'
 export const LEGACY_STORAGE_KEY = 'pomodoro-state-v1'
@@ -23,6 +24,8 @@ export const DEFAULT_GLOBAL_SHORTCUTS_ENABLED = true
 export const DEFAULT_ALWAYS_ON_TOP = false
 export const DEFAULT_REMEMBER_WINDOW_POSITION = true
 export const DEFAULT_COMPACT_MODE = false
+export const DEFAULT_APPEARANCE = 'dark' as const
+export const DEFAULT_ACCENT = 'rose' as const
 
 export interface StorageLike {
   getItem(key: string): string | null
@@ -100,7 +103,7 @@ const normalizeDailyRecords = (value: unknown): DailyRecords => {
 export const createDefaultState = (): PersistedState => {
   const today = getTodayKey()
   return {
-    version: 3,
+    version: 4,
     settings: { ...DEFAULT_SETTINGS },
     dailyRecords: {
       [today]: { date: today, completedPomodoros: 0, focusMinutes: 0 },
@@ -114,6 +117,8 @@ export const createDefaultState = (): PersistedState => {
     alwaysOnTop: DEFAULT_ALWAYS_ON_TOP,
     rememberWindowPosition: DEFAULT_REMEMBER_WINDOW_POSITION,
     compactMode: DEFAULT_COMPACT_MODE,
+    appearance: DEFAULT_APPEARANCE,
+    accent: DEFAULT_ACCENT,
   }
 }
 
@@ -126,7 +131,7 @@ export const normalizeState = (value: unknown): PersistedState => {
   }
 
   return {
-    version: 3,
+    version: 4,
     settings: normalizeSettings(candidate.settings),
     dailyRecords: records,
     soundEnabled: typeof candidate.soundEnabled === 'boolean'
@@ -154,6 +159,10 @@ export const normalizeState = (value: unknown): PersistedState => {
     compactMode: typeof candidate.compactMode === 'boolean'
       ? candidate.compactMode
       : DEFAULT_COMPACT_MODE,
+    appearance: isAppearance(candidate.appearance)
+      ? candidate.appearance
+      : DEFAULT_APPEARANCE,
+    accent: isAccent(candidate.accent) ? candidate.accent : DEFAULT_ACCENT,
   }
 }
 

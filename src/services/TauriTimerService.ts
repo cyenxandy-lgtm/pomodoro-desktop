@@ -66,6 +66,7 @@ export class TauriTimerService implements TimerService {
   private readonly bridge: TauriBridge
   private readonly listeners = new Set<TimerEventListener>()
   private readyPromise: Promise<void> | null = null
+  private ready = false
   private unlisten: (() => void) | null = null
 
   constructor(options: TauriTimerServiceOptions) {
@@ -78,6 +79,8 @@ export class TauriTimerService implements TimerService {
   }
 
   getSnapshot = (): TimerSnapshot => this.snapshot
+
+  isReady = (): boolean => this.ready
 
   subscribe = (listener: TimerEventListener): (() => void) => {
     this.listeners.add(listener)
@@ -121,10 +124,11 @@ export class TauriTimerService implements TimerService {
     await this.invokeCommand('timer_skip')
   }
 
-  configureNotifications = async (enabled: boolean): Promise<void> => {
+  configureNotifications = async (enabled: boolean): Promise<boolean> => {
     this.desktopNotifications = enabled
     await this.ensureReady()
-    await this.bridge.invoke<void>('timer_configure_notifications', { enabled })
+    const granted = await this.bridge.invoke<boolean | undefined>('timer_configure_notifications', { enabled })
+    return granted !== false
   }
 
   configureLifecycle = async (
@@ -184,6 +188,7 @@ export class TauriTimerService implements TimerService {
       throw error
     }
     this.snapshot = snapshot
+    this.ready = true
     this.emit({
       type: 'tick',
       eventId: 'projection:initialized',

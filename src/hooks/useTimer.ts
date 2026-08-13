@@ -16,6 +16,7 @@ interface UseTimerOptions {
 }
 
 interface UseTimerResult extends TimerSnapshot {
+  isReady: boolean
   start: () => void
   pause: () => void
   resume: () => void
@@ -72,6 +73,7 @@ export const useTimer = ({ settings, onComplete, service }: UseTimerOptions): Us
 
   return {
     ...snapshot,
+    isReady: timerService.isReady?.() ?? true,
     start: useCallback(() => {
       Promise.resolve(timerService.start()).catch((error: unknown) => {
         logger.error('Failed to start timer.', error)

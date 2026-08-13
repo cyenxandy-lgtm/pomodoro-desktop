@@ -13,7 +13,7 @@ export interface RuntimeServices {
   sessionRepository: TauriSessionRepository | null
   statisticsService: StatisticsService
   configureSound(enabled: boolean, volume: number): Promise<void>
-  configureNotifications(enabled: boolean): Promise<void>
+  configureNotifications(enabled: boolean): Promise<boolean>
   configureLifecycle(closeToTray: boolean, minimizeToTray: boolean): Promise<void>
   configureProductivity(settings: DesktopProductivitySettings): Promise<ShortcutStatus>
 }
@@ -31,7 +31,7 @@ export const createRuntimeServices = (
       sessionRepository: null,
       statisticsService: new EmptyStatisticsService(),
       configureSound: async () => undefined,
-      configureNotifications: async () => undefined,
+      configureNotifications: async () => true,
       configureLifecycle: async () => undefined,
       configureProductivity: async (productivity) => ({
         enabled: productivity.globalShortcutsEnabled,
