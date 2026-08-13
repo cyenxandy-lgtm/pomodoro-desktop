@@ -109,8 +109,8 @@ pub fn timer_configure_notifications(
     manager: State<'_, TimerManager>,
     data_profile: State<'_, DataProfile>,
     enabled: bool,
-) {
-    manager.configure_notifications(enabled && !data_profile.smoke_autostart());
+) -> bool {
+    manager.configure_notifications(enabled && !data_profile.smoke_autostart())
 }
 
 #[tauri::command]

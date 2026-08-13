@@ -9,6 +9,9 @@ export type {
 } from './domain/timer'
 
 import type { TimerSettings } from './domain/timer'
+import type { Accent, Appearance } from './domain/appearance'
+
+export type { Accent, Appearance } from './domain/appearance'
 
 export interface DailyRecord {
   date: string
@@ -19,7 +22,7 @@ export interface DailyRecord {
 export type DailyRecords = Record<string, DailyRecord>
 
 export interface PersistedState {
-  version: 3
+  version: 4
   settings: TimerSettings
   /** Aggregate-only V1/V2 history. Never convert it into fabricated sessions. */
   dailyRecords: DailyRecords
@@ -32,4 +35,6 @@ export interface PersistedState {
   alwaysOnTop: boolean
   rememberWindowPosition: boolean
   compactMode: boolean
+  appearance: Appearance
+  accent: Accent
 }

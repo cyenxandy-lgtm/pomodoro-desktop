@@ -26,13 +26,13 @@ export const History = ({ dailyRecords, today }: HistoryProps) => {
           <h2>历史记录</h2>
         </div>
       </div>
-      <p className="history-description">每一次完整 Focus，都会留下当天的专注足迹。</p>
+      <p className="history-description">每一次完整专注，都会留下当天的专注足迹。</p>
 
       {records.length === 0 ? (
         <div className="history-empty">
           <span className="empty-tomato" aria-hidden="true">🍅</span>
           <strong>还没有完成记录</strong>
-          <span>完成一个 Focus 后，它会出现在这里。</span>
+          <span>完成一个番茄后，它会出现在这里。</span>
         </div>
       ) : (
         <div className="history-list">

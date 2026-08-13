@@ -192,7 +192,7 @@ pub fn dispatch_desktop_action<R: Runtime>(
 }
 
 pub fn create_tray(app: &App) -> tauri::Result<TrayController> {
-    let status = MenuItem::with_id(app, "timer-status", "Focus · 25:00", false, None::<&str>)?;
+    let status = MenuItem::with_id(app, "timer-status", "专注 · 25:00", false, None::<&str>)?;
     let toggle = MenuItem::with_id(app, TRAY_TOGGLE, "开始", true, None::<&str>)?;
     let reset = MenuItem::with_id(app, TRAY_RESET, "重置", true, None::<&str>)?;
     let skip = MenuItem::with_id(app, TRAY_SKIP, "跳过", false, None::<&str>)?;
@@ -278,14 +278,21 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
 
 fn mode_label(mode: TimerMode) -> &'static str {
     match mode {
-        TimerMode::Focus => "Focus",
-        TimerMode::ShortBreak => "Short Break",
-        TimerMode::LongBreak => "Long Break",
+        TimerMode::Focus => "专注",
+        TimerMode::ShortBreak => "短休息",
+        TimerMode::LongBreak => "长休息",
     }
 }
 
 fn format_time(total_seconds: u32) -> String {
-    format!("{:02}:{:02}", total_seconds / 60, total_seconds % 60)
+    let hours = total_seconds / 3_600;
+    let minutes = total_seconds % 3_600 / 60;
+    let seconds = total_seconds % 60;
+    if hours > 0 {
+        format!("{hours}:{minutes:02}:{seconds:02}")
+    } else {
+        format!("{minutes:02}:{seconds:02}")
+    }
 }
 
 #[cfg(test)]
@@ -399,5 +406,12 @@ mod tests {
             controller.calls.lock().expect("calls").as_slice(),
             &["toggle", "show"]
         );
+    }
+
+    #[test]
+    fn tray_time_formats_hour_long_sessions_without_overwide_minutes() {
+        assert_eq!(format_time(0), "00:00");
+        assert_eq!(format_time(3_600), "1:00:00");
+        assert_eq!(format_time(7_205), "2:00:05");
     }
 }

@@ -133,10 +133,14 @@ impl TimerManager {
         self.shared.audio.configure(enabled, volume)
     }
 
-    pub fn configure_notifications(&self, enabled: bool) {
-        if let Err(error) = self.shared.notification.configure(enabled) {
-            log::warn!("Desktop notification configuration failed: {error}");
-        }
+    pub fn configure_notifications(&self, enabled: bool) -> bool {
+        self.shared
+            .notification
+            .configure(enabled)
+            .unwrap_or_else(|error| {
+                log::warn!("Desktop notification configuration failed: {error}");
+                false
+            })
     }
 
     pub fn snapshot(&self) -> Result<TimerSnapshot, String> {
@@ -469,7 +473,7 @@ mod tests {
     use crate::notification::RecordingNotification;
     use crate::timer::clock::test_support::{FakeClock, ThresholdDateResolver};
     use crate::timer::domain::{SessionStatus, TimerEventType, TimerStatus};
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     const START: i64 = 1_000_000;
 
@@ -571,7 +575,7 @@ mod tests {
     }
 
     fn create_manager(
-        path: &PathBuf,
+        path: &Path,
         clock: Arc<FakeClock>,
         sink: Arc<RecordingSink>,
         audio: Arc<RecordingNotifier>,

@@ -1,0 +1,14 @@
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 17px;
+  --motion-fast: 140ms;
+  --motion-normal: 190ms;
+  --focus-ring-width: 2px;
+}

@@ -101,6 +101,25 @@ Put VS Code or a browser in the foreground before each check.
 - [ ] Compact timer controls work
 - [ ] Compact to Normal preserves timer state
 
+## Theme and Product Polish
+
+- [ ] Dark theme is readable on Timer, Statistics, Settings, and Compact views
+- [ ] Light theme uses soft surfaces with readable text, borders, controls, and charts
+- [ ] System theme follows a live Windows Light/Dark change without restarting
+- [ ] Rose, Mint, and Blue accents remain readable in both Dark and Light themes
+- [ ] Theme and accent survive a full application restart
+- [ ] Focus, Short Break, and Long Break remain visually distinct in every theme
+- [ ] Keyboard-only navigation reaches Timer controls, mode tabs, Statistics, Settings, and every setting
+- [ ] Focus rings are clearly visible on buttons, inputs, slider, toggles, navigation, and chart columns
+- [ ] Windows Reduced Motion removes completion and section transition motion
+- [ ] Compact mode renders correctly in Dark, Light, and System themes at 320 × 160
+- [ ] Statistics charts, tooltips, loading, empty, and error states are readable in every theme
+- [ ] Settings sections fit at 430 × 680 and remain usable at 360 × 600
+- [ ] Storage failure notice is non-blocking and Retry clears it after persistence recovers
+- [ ] Shortcut conflicts name the exact unavailable shortcut
+- [ ] About shows the package/Tauri version rather than a hard-coded value
+- [ ] Timer displays `00:00`, `25:00`, and `1:00:00` without clipping at 100%, 125%, and 150% DPI
+
 ## Always On Top
 
 - [ ] ON keeps Pomodoro above another application

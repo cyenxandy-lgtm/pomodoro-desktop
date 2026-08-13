@@ -29,9 +29,9 @@ const renderCompact = (mode: TimerMode, status: TimerStatus) => {
 
 describe('CompactTimer', () => {
   it.each([
-    ['focus', 'FOCUS'],
-    ['shortBreak', 'SHORT BREAK'],
-    ['longBreak', 'LONG BREAK'],
+    ['focus', '专注'],
+    ['shortBreak', '短休息'],
+    ['longBreak', '长休息'],
   ] as const)('shows %s mode without creating timer state', (mode, label) => {
     renderCompact(mode, 'idle')
     expect(screen.getByText(label)).toBeTruthy()

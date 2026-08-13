@@ -56,9 +56,9 @@ describe('StatisticsPage', () => {
     render(<StatisticsPage data={data} loading={false} error={false} onRetry={vi.fn()} />)
 
     expect(screen.getByRole('region', { name: '今天统计' }).textContent).toContain('2')
-    expect(screen.getByLabelText('7 天专注趋势')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: '30天' }))
-    expect(screen.getByLabelText('30 天专注趋势')).toBeTruthy()
+    expect(screen.getByLabelText('最近 7 天共完成 2 个番茄，专注 50分钟')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '30 天' }))
+    expect(screen.getByLabelText('最近 30 天共完成 2 个番茄，专注 50分钟')).toBeTruthy()
     expect(screen.getByRole('region', { name: '全部时间统计' }).textContent).toContain('3小时 20分钟')
   })
 
@@ -66,9 +66,9 @@ describe('StatisticsPage', () => {
     render(<StatisticsPage data={data} loading={false} error={false} onRetry={vi.fn()} />)
 
     const timeline = screen.getByRole('region', { name: '今日记录' })
-    expect(timeline.textContent).toContain('Focus')
-    expect(timeline.textContent).toContain('Short Break')
-    expect(timeline.textContent).toContain('Long Break')
+    expect(timeline.textContent).toContain('专注')
+    expect(timeline.textContent).toContain('短休息')
+    expect(timeline.textContent).toContain('长休息')
     expect(timeline.textContent).toContain('完成')
     expect(timeline.textContent).toContain('跳过')
     expect(timeline.textContent).toContain('中断')

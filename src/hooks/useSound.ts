@@ -18,6 +18,7 @@ export const useSound = ({ enabled, volume }: UseSoundOptions) => {
   const playCompletionSound = useCallback(() => {
     const audio = audioRef.current ?? new Audio(SOUND_SOURCE)
     audioRef.current = audio
+    audio.pause()
     if (!prepareAudioPlayback(audio, enabled, volume)) return
 
     void audio.play().catch((error: unknown) => {

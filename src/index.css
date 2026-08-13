@@ -1,7 +1,7 @@
 :root {
   font-family: 'Segoe UI Variable', 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
-  color: #f4f1ed;
-  background: #151516;
+  color: var(--color-text-primary);
+  background: var(--color-background);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -16,6 +16,8 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: var(--color-background);
+  transition: background-color var(--motion-normal) ease, color var(--motion-normal) ease;
 }
 
 button,
@@ -28,11 +30,28 @@ button {
 }
 
 button:focus-visible,
-input:focus-visible {
-  outline: 2px solid #f28772;
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-accent);
   outline-offset: 3px;
+}
+
+button:disabled,
+input:disabled {
+  cursor: not-allowed;
 }
 
 #root {
   min-height: 100vh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

@@ -112,5 +112,7 @@ export interface TimerService {
   configure(settings: TimerSettings): void | Promise<void>
   reconcile(): void | Promise<void>
   getSnapshot(): TimerSnapshot
+  /** Native adapters can report initialization so the UI avoids rendering a fake snapshot. */
+  isReady?(): boolean
   subscribe(listener: TimerEventListener): () => void
 }
