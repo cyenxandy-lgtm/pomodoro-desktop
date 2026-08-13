@@ -1,6 +1,7 @@
 use crate::db::CreateSessionResult;
 use crate::desktop::DesktopLifecycle;
 use crate::shortcuts::{ShortcutManager, ShortcutStatus};
+use crate::statistics::{StatisticsService, StatisticsSnapshot};
 use crate::timer::{
     DailySessionRecord, TimerManager, TimerMode, TimerSession, TimerSettings, TimerSnapshot,
 };
@@ -144,4 +145,14 @@ pub fn session_get_daily_records(
     manager: State<'_, TimerManager>,
 ) -> Result<Vec<DailySessionRecord>, String> {
     manager.daily_records()
+}
+
+#[tauri::command]
+pub fn statistics_get_snapshot(
+    service: State<'_, StatisticsService>,
+    start_date: Option<String>,
+    end_date: Option<String>,
+    recent_limit: u32,
+) -> Result<StatisticsSnapshot, String> {
+    service.snapshot(start_date.as_deref(), end_date.as_deref(), recent_limit)
 }

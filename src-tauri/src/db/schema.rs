@@ -1,20 +1,61 @@
 use rusqlite::Connection;
 
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 
 pub fn migrate(connection: &Connection) -> rusqlite::Result<()> {
     let version: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
     match version {
-        0 if table_exists(connection, "sessions")? => migrate_v1_to_v2(connection)?,
-        0 => create_v2(connection)?,
-        1 => migrate_v1_to_v2(connection)?,
-        2 => ensure_v2(connection)?,
+        0 if table_exists(connection, "sessions")? => {
+            migrate_v1_to_v2(connection)?;
+            migrate_v2_to_v3(connection)?;
+        }
+        0 => {
+            create_v2(connection)?;
+            migrate_v2_to_v3(connection)?;
+        }
+        1 => {
+            migrate_v1_to_v2(connection)?;
+            migrate_v2_to_v3(connection)?;
+        }
+        2 => migrate_v2_to_v3(connection)?,
+        3 => ensure_v3(connection)?,
         other => {
             return Err(rusqlite::Error::InvalidParameterName(format!(
                 "Unsupported database schema version: {other}"
             )))
         }
     }
+    Ok(())
+}
+
+fn migrate_v2_to_v3(connection: &Connection) -> rusqlite::Result<()> {
+    connection.execute_batch("BEGIN IMMEDIATE;")?;
+    let result = connection
+        .execute_batch(
+            r#"
+            CREATE INDEX IF NOT EXISTS sessions_v3_statistics_idx
+                ON sessions(mode, status, date);
+            "#,
+        )
+        .and_then(|_| {
+            connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+            connection.execute_batch("COMMIT;")
+        });
+    if result.is_err() {
+        let _ = connection.execute_batch("ROLLBACK;");
+    }
+    result
+}
+
+fn ensure_v3(connection: &Connection) -> rusqlite::Result<()> {
+    ensure_v2(connection)?;
+    connection.execute_batch(
+        r#"
+        CREATE INDEX IF NOT EXISTS sessions_v3_statistics_idx
+            ON sessions(mode, status, date);
+        "#,
+    )?;
+    connection.pragma_update(None, "user_version", SCHEMA_VERSION)?;
     Ok(())
 }
 
@@ -275,7 +316,7 @@ mod tests {
     }
 
     #[test]
-    fn v2_migration_is_idempotent() {
+    fn latest_migration_is_idempotent() {
         let connection = legacy_database();
         migrate(&connection).expect("first migration");
         migrate(&connection).expect("second migration");
@@ -289,6 +330,34 @@ mod tests {
         let version: i64 = connection
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .expect("version");
-        assert_eq!(version, 2);
+        assert_eq!(version, 3);
+        assert!(connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'sessions_v3_statistics_idx')",
+                [],
+                |row| row.get::<_, bool>(0),
+            )
+            .expect("statistics index"));
+    }
+
+    #[test]
+    fn v2_database_upgrades_without_rebuilding_sessions() {
+        let connection = legacy_database();
+        migrate_v1_to_v2(&connection).expect("prepare v2");
+        let before: i64 = connection
+            .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))
+            .expect("before count");
+
+        migrate(&connection).expect("upgrade to v3");
+
+        let version: i64 = connection
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .expect("version");
+        let after: i64 = connection
+            .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))
+            .expect("after count");
+        assert_eq!(version, 3);
+        assert_eq!(after, before);
+        assert!(table_exists(&connection, "sessions_v1_archive").expect("archive preserved"));
     }
 }

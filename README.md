@@ -11,8 +11,8 @@
 - 开始、暂停、继续、重置和跳过
 - 可选自动开始休息、自动开始 Focus
 - Rust wall-clock Timer，避免 WebView 卡顿造成累计误差
-- SQLite v2 持久化与 v1 数据安全迁移
-- 今日完成数与历史 Session 统计
+- SQLite v3 持久化、历史数据安全迁移与统计复合索引
+- Today、7/30 天趋势、Current/Longest Streak、All-Time 与最近 Session 统计
 - 原生完成提示音和桌面通知
 - 系统托盘显示状态，可直接开始/暂停/继续、重置、跳过和退出
 - 可选关闭到托盘、最小化到托盘
@@ -90,12 +90,16 @@ Windows 原生通知需要从安装后的应用运行，开发模式下是否显
 
 - `src/components/`：模式切换、计时控制、统计和设置 UI
 - `src/hooks/useTimer.ts`：React Timer 状态订阅与窗口恢复校准
+- `src/hooks/useStatistics.ts`：统计加载、错误恢复、窗口恢复刷新
+- `src/domain/statistics.ts`：Legacy/SQLite 合并、日期补零、Streak 与汇总
+- `src/services/StatisticsService.ts`：严格类型化的 Statistics IPC adapter
 - `src/services/TauriTimerService.ts`：React 与 Rust Timer 的 IPC adapter
 - `src/services/WebTimerService.ts`：浏览器开发与测试 fallback
 - `src/repositories/`：Session 查询边界
 - `src/utils/storage.ts`：设置迁移与本地偏好持久化
 - `src-tauri/src/timer/`：Rust Timer domain、状态机、运行时和恢复逻辑
-- `src-tauri/src/db/`：SQLite schema、v1 → v2 迁移与 repository
+- `src-tauri/src/db/`：SQLite schema、v1 → v3 安全迁移与 repository
+- `src-tauri/src/statistics.rs`：有界 Statistics 查询服务与 DTO
 - `src-tauri/src/audio.rs`：不依赖 WebView 的原生完成提示音
 - `src-tauri/src/notification.rs`：原生完成通知
 - `src-tauri/src/desktop.rs`：系统托盘与桌面生命周期

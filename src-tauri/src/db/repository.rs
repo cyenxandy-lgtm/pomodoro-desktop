@@ -8,6 +8,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use super::schema;
+use crate::statistics::DailyFocusStatistics;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -153,6 +154,38 @@ impl SqliteRepository {
                     date: row.get(0)?,
                     completed_pomodoros: checked_u32(row.get(1)?, 1)?,
                     focus_minutes: checked_u32(row.get(2)?, 2)?,
+                })
+            })
+            .map_err(error_message)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(error_message)
+    }
+
+    pub fn get_daily_statistics(
+        &self,
+        start_date: Option<&str>,
+        end_date: Option<&str>,
+    ) -> Result<Vec<DailyFocusStatistics>, String> {
+        let mut statement = self
+            .connection
+            .prepare(
+                r#"
+                SELECT date, COUNT(*), SUM(planned_duration_seconds)
+                FROM sessions
+                WHERE mode = 'focus' AND status = 'completed'
+                  AND (?1 IS NULL OR date >= ?1)
+                  AND (?2 IS NULL OR date <= ?2)
+                GROUP BY date
+                ORDER BY date ASC
+                "#,
+            )
+            .map_err(error_message)?;
+        let rows = statement
+            .query_map(params![start_date, end_date], |row| {
+                Ok(DailyFocusStatistics {
+                    date: row.get(0)?,
+                    completed_pomodoros: checked_u32(row.get(1)?, 1)?,
+                    focus_seconds: checked_u64(row.get(2)?, 2)?,
                 })
             })
             .map_err(error_message)?;
@@ -408,6 +441,10 @@ fn checked_u32(value: i64, column: usize) -> rusqlite::Result<u32> {
     u32::try_from(value).map_err(|error| conversion_error(column, error.to_string()))
 }
 
+fn checked_u64(value: i64, column: usize) -> rusqlite::Result<u64> {
+    u64::try_from(value).map_err(|error| conversion_error(column, error.to_string()))
+}
+
 fn optional_u32(value: Option<i64>, column: usize) -> rusqlite::Result<Option<u32>> {
     value.map(|number| checked_u32(number, column)).transpose()
 }
@@ -552,5 +589,137 @@ mod tests {
                 focus_minutes: 1,
             }]
         );
+    }
+
+    #[test]
+    fn statistics_use_planned_focus_duration_and_exclude_non_completed_focus() {
+        let mut repository = SqliteRepository::in_memory().expect("repository");
+        assert!(repository
+            .get_daily_statistics(None, None)
+            .expect("empty statistics")
+            .is_empty());
+
+        let completed = TimerSession {
+            planned_duration_seconds: 1_500,
+            actual_duration_seconds: 7_200,
+            date: "2026-08-10".into(),
+            ..completed_session("completed", "completion-completed")
+        };
+        let sessions = [
+            completed.clone(),
+            TimerSession {
+                id: "skipped".into(),
+                completion_event_id: None,
+                status: SessionStatus::Skipped,
+                ..completed.clone()
+            },
+            TimerSession {
+                id: "cancelled".into(),
+                completion_event_id: None,
+                status: SessionStatus::Cancelled,
+                ..completed.clone()
+            },
+            TimerSession {
+                id: "short-break".into(),
+                completion_event_id: Some("completion-short-break".into()),
+                mode: TimerMode::ShortBreak,
+                ..completed.clone()
+            },
+            TimerSession {
+                id: "long-break".into(),
+                completion_event_id: Some("completion-long-break".into()),
+                mode: TimerMode::LongBreak,
+                ..completed.clone()
+            },
+            TimerSession {
+                id: "different-duration".into(),
+                completion_event_id: Some("completion-different-duration".into()),
+                planned_duration_seconds: 3_000,
+                actual_duration_seconds: 3_000,
+                ended_at: 62_000,
+                ..completed.clone()
+            },
+            TimerSession {
+                id: "older-than-thirty-days".into(),
+                completion_event_id: Some("completion-older".into()),
+                date: "2026-07-01".into(),
+                ..completed
+            },
+        ];
+        for session in sessions {
+            repository.create_session(&session).expect("insert session");
+        }
+
+        assert_eq!(
+            repository
+                .get_daily_statistics(Some("2026-08-04"), Some("2026-08-10"))
+                .expect("seven day statistics"),
+            vec![DailyFocusStatistics {
+                date: "2026-08-10".into(),
+                completed_pomodoros: 2,
+                focus_seconds: 4_500,
+            }]
+        );
+        assert_eq!(
+            repository
+                .get_daily_statistics(None, Some("2026-08-10"))
+                .expect("all statistics")
+                .iter()
+                .map(|row| row.date.as_str())
+                .collect::<Vec<_>>(),
+            vec!["2026-07-01", "2026-08-10"]
+        );
+    }
+
+    #[test]
+    fn recent_sessions_are_sorted_limited_and_keep_break_statuses() {
+        let mut repository = SqliteRepository::in_memory().expect("repository");
+        let base = completed_session("focus", "completion-focus");
+        for session in [
+            base.clone(),
+            TimerSession {
+                id: "break".into(),
+                completion_event_id: Some("completion-break".into()),
+                mode: TimerMode::ShortBreak,
+                ended_at: 71_000,
+                ..base.clone()
+            },
+            TimerSession {
+                id: "skipped".into(),
+                completion_event_id: None,
+                status: SessionStatus::Skipped,
+                ended_at: 81_000,
+                ..base
+            },
+        ] {
+            repository.create_session(&session).expect("insert session");
+        }
+
+        let recent = repository.get_recent(2).expect("recent");
+        assert_eq!(recent.len(), 2);
+        assert_eq!(recent[0].status, SessionStatus::Skipped);
+        assert_eq!(recent[1].mode, TimerMode::ShortBreak);
+    }
+
+    #[test]
+    fn statistics_query_uses_the_composite_index() {
+        let repository = SqliteRepository::in_memory().expect("repository");
+        let detail: String = repository
+            .connection
+            .query_row(
+                r#"
+                EXPLAIN QUERY PLAN
+                SELECT date, COUNT(*), SUM(planned_duration_seconds)
+                FROM sessions
+                WHERE mode = 'focus' AND status = 'completed'
+                  AND ('2026-08-01' IS NULL OR date >= '2026-08-01')
+                  AND ('2026-08-31' IS NULL OR date <= '2026-08-31')
+                GROUP BY date
+                "#,
+                [],
+                |row| row.get(3),
+            )
+            .expect("query plan");
+        assert!(detail.contains("sessions_v3_statistics_idx"), "{detail}");
     }
 }
