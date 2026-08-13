@@ -2,6 +2,9 @@
 
 一个轻量、可靠、专注于桌面体验的 Windows 番茄钟。
 
+支持 Focus / Short Break / Long Break、Statistics，以及 System Tray、Global Shortcut、Compact Mode 和多主题外观。
+桌面版由 Rust 维护权威 Timer 状态，React/WebView 负责界面与交互。
+
 Built with Tauri 2 + React + TypeScript + Rust.
 
 ![Version](https://img.shields.io/badge/version-v0.4.0-c96367)
@@ -12,7 +15,7 @@ Built with Tauri 2 + React + TypeScript + Rust.
 
 _English version coming later._
 
-Pomodoro Desktop 将计时权威状态放在 Rust，而不是只依赖 React/WebView 中的 JavaScript Timer。运行中的计时器保存目标结束时间，并根据系统时间持续校准；窗口隐藏、WebView 暂停或系统短暂休眠后，应用会重新协调计时状态，减少后台节流造成的累计误差。
+运行中的计时器保存目标结束时间，并根据系统时间持续校准；窗口隐藏、WebView 暂停或系统短暂休眠后，应用会重新协调计时状态，减少后台节流造成的累计误差。
 
 当前版本不需要账号或服务器，专注记录与设置保存在本地。
 
@@ -143,7 +146,7 @@ React 负责界面、偏好设置与状态投影；Tauri IPC 将用户操作发�
 
 浏览器中的 `setInterval()` 更适合驱动 UI 刷新，不适合作为唯一时间来源：WebView 后台节流、系统休眠或主线程卡顿都可能延迟回调。
 
-桌面版运行时保存 `targetEndTime`，每次刷新都通过当前 wall clock 重新计算剩余时间；暂停时保存剩余时长，继续时生成新的目标结束时间。应用重启后会从 SQLite 恢复活动状态，过期 Timer 则通过 reconcile 完成收口，不凭空补跑多个周期。
+桌面版运行时保存 `targetEndTime`，每次状态协调都通过当前 wall clock 重新计算剩余时间；暂停时保存剩余时长，继续时生成新的目标结束时间。应用重启后会从 SQLite 恢复活动状态，过期 Timer 则通过 reconcile 完成收口，不凭空补跑多个周期。
 
 ## 🧰 技术栈
 
@@ -263,7 +266,7 @@ src/
 ├── hooks/            # React 状态与生命周期衔接
 ├── repositories/     # Session repository adapters
 ├── services/         # Tauri/Web runtime services
-├── styles/           # Theme 与 design tokens
+├── styles/           # Theme 与视觉变量
 └── utils/            # Storage、日期与格式化
 
 src-tauri/
