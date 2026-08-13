@@ -23,12 +23,19 @@ describe('SettingsPanel', () => {
         desktopNotifications
         closeToTray
         minimizeToTray={false}
+        globalShortcutsEnabled
+        alwaysOnTop={false}
+        rememberWindowPosition
+        shortcutUnavailable={[]}
         onChange={onChange}
         onSoundEnabledChange={vi.fn()}
         onVolumeChange={vi.fn()}
         onDesktopNotificationsChange={vi.fn()}
         onCloseToTrayChange={vi.fn()}
         onMinimizeToTrayChange={vi.fn()}
+        onGlobalShortcutsEnabledChange={vi.fn()}
+        onAlwaysOnTopChange={vi.fn()}
+        onRememberWindowPositionChange={vi.fn()}
         onTestSound={vi.fn()}
       />,
     )

@@ -15,8 +15,8 @@
         "title": "Pomodoro",
         "width": 430,
         "height": 680,
-        "minWidth": 360,
-        "minHeight": 600,
+        "minWidth": 300,
+        "minHeight": 140,
         "resizable": true,
         "fullscreen": false
       }

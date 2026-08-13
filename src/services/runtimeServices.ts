@@ -1,6 +1,7 @@
 import type { TimerService, TimerSettings } from '../domain/timer'
 import { TauriSessionRepository } from '../repositories/TauriSessionRepository'
 import { TauriTimerService } from './TauriTimerService'
+import type { DesktopProductivitySettings, ShortcutStatus } from './TauriTimerService'
 import { isTauriRuntime } from './tauriRuntime'
 import { WebTimerService } from './WebTimerService'
 
@@ -11,6 +12,7 @@ export interface RuntimeServices {
   configureSound(enabled: boolean, volume: number): Promise<void>
   configureNotifications(enabled: boolean): Promise<void>
   configureLifecycle(closeToTray: boolean, minimizeToTray: boolean): Promise<void>
+  configureProductivity(settings: DesktopProductivitySettings): Promise<ShortcutStatus>
 }
 
 export const createRuntimeServices = (
@@ -27,6 +29,10 @@ export const createRuntimeServices = (
       configureSound: async () => undefined,
       configureNotifications: async () => undefined,
       configureLifecycle: async () => undefined,
+      configureProductivity: async (productivity) => ({
+        enabled: productivity.globalShortcutsEnabled,
+        unavailable: [],
+      }),
     }
   }
 
@@ -46,6 +52,9 @@ export const createRuntimeServices = (
     configureNotifications: (enabled) => timerService.configureNotifications(enabled),
     configureLifecycle: (closeToTray, minimizeToTray) => (
       timerService.configureLifecycle(closeToTray, minimizeToTray)
+    ),
+    configureProductivity: (productivity) => (
+      timerService.configureProductivity(productivity)
     ),
   }
 }

@@ -16,7 +16,21 @@
 - 原生完成提示音和桌面通知
 - 系统托盘显示状态，可直接开始/暂停/继续、重置、跳过和退出
 - 可选关闭到托盘、最小化到托盘
+- 全局快捷键直接控制同一个 Rust Timer，不依赖 WebView 焦点
+- 单窗口紧凑模式，保留当前模式、倒计时和运行状态
+- 可选始终置顶，并分别记忆标准/紧凑窗口的位置与尺寸
 - 浏览器开发模式提供等价的本地 fallback
+
+## 全局快捷键
+
+| 操作 | 快捷键 |
+| --- | --- |
+| 开始 / 暂停 / 继续 | `Ctrl + Alt + Space` |
+| 重置 | `Ctrl + Alt + R` |
+| 跳过当前阶段 | `Ctrl + Alt + S` |
+| 显示 / 隐藏主窗口 | `Ctrl + Alt + P` |
+
+快捷键默认开启，可在设置中关闭。如果某个组合键被其他程序占用，应用会继续运行并在设置页提示不可用的组合键。
 
 ## 环境要求
 
@@ -85,8 +99,10 @@ Windows 原生通知需要从安装后的应用运行，开发模式下是否显
 - `src-tauri/src/audio.rs`：不依赖 WebView 的原生完成提示音
 - `src-tauri/src/notification.rs`：原生完成通知
 - `src-tauri/src/desktop.rs`：系统托盘与桌面生命周期
+- `src-tauri/src/shortcuts.rs`：全局快捷键注册、冲突降级与 action 映射
+- `src-tauri/src/window_state.rs`：窗口模式、置顶和多显示器/DPI 恢复
 - `src-tauri/src/commands.rs`：Timer、Session 和桌面设置 IPC commands
 
 ## 本地数据
 
-桌面版数据库位于 Tauri 应用数据目录，数据库名为 `pomodoro.sqlite3`。浏览器开发模式使用 `localStorage`。应用不需要账号、服务器或云同步。
+桌面版数据位于 Tauri 应用数据目录：`pomodoro.sqlite3` 保存 Timer 与 Session，`window-state.json` 保存标准/紧凑窗口的独立 bounds 和桌面偏好。浏览器开发模式使用 `localStorage`。应用不需要账号、服务器或云同步。

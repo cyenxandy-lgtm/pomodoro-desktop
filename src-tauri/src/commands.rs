@@ -1,9 +1,11 @@
 use crate::db::CreateSessionResult;
 use crate::desktop::DesktopLifecycle;
+use crate::shortcuts::{ShortcutManager, ShortcutStatus};
 use crate::timer::{
     DailySessionRecord, TimerManager, TimerMode, TimerSession, TimerSettings, TimerSnapshot,
 };
-use tauri::State;
+use crate::window_state::WindowManager;
+use tauri::{AppHandle, State};
 
 #[tauri::command]
 pub fn desktop_configure_lifecycle(
@@ -12,6 +14,21 @@ pub fn desktop_configure_lifecycle(
     minimize_to_tray: bool,
 ) {
     lifecycle.configure(close_to_tray, minimize_to_tray);
+}
+
+#[tauri::command]
+pub fn desktop_configure_productivity(
+    app: AppHandle,
+    shortcut_manager: State<'_, ShortcutManager>,
+    window_manager: State<'_, WindowManager>,
+    global_shortcuts_enabled: bool,
+    always_on_top: bool,
+    remember_window_position: bool,
+    compact_mode: bool,
+) -> ShortcutStatus {
+    let shortcut_status = shortcut_manager.configure(&app, global_shortcuts_enabled);
+    window_manager.configure(&app, compact_mode, always_on_top, remember_window_position);
+    shortcut_status
 }
 
 #[tauri::command]

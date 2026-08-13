@@ -3,17 +3,21 @@ mod commands;
 mod db;
 mod desktop;
 mod notification;
+mod shortcuts;
 mod timer;
+mod window_state;
 
 use audio::NativeSoundPlayer;
 use db::SqliteRepository;
 use desktop::{create_tray, DesktopLifecycle, TrayController};
 use notification::NativeNotificationService;
+use shortcuts::ShortcutManager;
 use std::sync::Arc;
 use tauri::{Emitter, Manager};
 use timer::clock::{SystemClock, SystemLocalDateResolver};
 use timer::runtime::TimerEventSink;
 use timer::TimerManager;
+use window_state::WindowManager;
 
 struct TauriTimerEventSink {
     app_handle: tauri::AppHandle,
@@ -35,6 +39,11 @@ impl TimerEventSink for TauriTimerEventSink {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let application = tauri::Builder::default()
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(shortcuts::handle_shortcut)
+                .build(),
+        )
         .plugin(tauri_plugin_notification::init())
         .on_window_event(|window, event| {
             let lifecycle = window.app_handle().state::<DesktopLifecycle>();
@@ -43,11 +52,17 @@ pub fn run() {
                     if lifecycle.should_hide_on_close() =>
                 {
                     api.prevent_close();
+                    if let Some(manager) = window.app_handle().try_state::<WindowManager>() {
+                        manager.capture_and_flush(window.app_handle());
+                    }
                     if let Err(error) = window.hide() {
                         log::error!("Failed to hide Pomodoro window: {error}");
                     }
                 }
                 tauri::WindowEvent::CloseRequested { .. } => {
+                    if let Some(window_manager) = window.app_handle().try_state::<WindowManager>() {
+                        window_manager.capture_and_flush(window.app_handle());
+                    }
                     lifecycle.mark_quitting();
                     if let Some(manager) = window.app_handle().try_state::<TimerManager>() {
                         if let Err(error) = manager.snapshot() {
@@ -60,8 +75,18 @@ pub fn run() {
                     if lifecycle.should_hide_on_minimize()
                         && window.is_minimized().unwrap_or(false) =>
                 {
+                    if let Some(manager) = window.app_handle().try_state::<WindowManager>() {
+                        manager.capture_and_flush(window.app_handle());
+                    }
                     if let Err(error) = window.hide() {
                         log::error!("Failed to hide minimized Pomodoro window: {error}");
+                    }
+                }
+                tauri::WindowEvent::Moved(_)
+                | tauri::WindowEvent::Resized(_)
+                | tauri::WindowEvent::ScaleFactorChanged { .. } => {
+                    if let Some(manager) = window.app_handle().try_state::<WindowManager>() {
+                        manager.schedule_capture();
                     }
                 }
                 _ => {}
@@ -79,6 +104,16 @@ pub fn run() {
             app.manage(DesktopLifecycle::new());
             let data_directory = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_directory)?;
+            let window_manager = WindowManager::open(
+                app.handle().clone(),
+                data_directory.join("window-state.json"),
+            );
+            window_manager.apply_initial(app.handle());
+            window_manager.schedule_capture();
+            app.manage(window_manager);
+            let shortcut_manager = ShortcutManager::new();
+            shortcut_manager.configure(app.handle(), true);
+            app.manage(shortcut_manager);
             let repository = SqliteRepository::open(&data_directory.join("pomodoro.sqlite3"))
                 .map_err(std::io::Error::other)?;
             let manager = TimerManager::new(
@@ -112,6 +147,7 @@ pub fn run() {
             commands::timer_select_mode,
             commands::timer_reconcile,
             commands::desktop_configure_lifecycle,
+            commands::desktop_configure_productivity,
             commands::session_create,
             commands::session_update,
             commands::session_get_by_date,
@@ -123,6 +159,12 @@ pub fn run() {
 
     application.run(|app_handle, event| {
         if matches!(event, tauri::RunEvent::Exit) {
+            if let Some(window_manager) = app_handle.try_state::<WindowManager>() {
+                window_manager.capture_and_flush(app_handle);
+            }
+            if let Some(shortcut_manager) = app_handle.try_state::<ShortcutManager>() {
+                shortcut_manager.configure(app_handle, false);
+            }
             app_handle.state::<TimerManager>().shutdown();
         }
     });

@@ -16,6 +16,10 @@ export const DEFAULT_SETTINGS: TimerSettings = {
 export const DEFAULT_DESKTOP_NOTIFICATIONS = true
 export const DEFAULT_CLOSE_TO_TRAY = true
 export const DEFAULT_MINIMIZE_TO_TRAY = false
+export const DEFAULT_GLOBAL_SHORTCUTS_ENABLED = true
+export const DEFAULT_ALWAYS_ON_TOP = false
+export const DEFAULT_REMEMBER_WINDOW_POSITION = true
+export const DEFAULT_COMPACT_MODE = false
 
 export interface StorageLike {
   getItem(key: string): string | null
@@ -93,7 +97,7 @@ const normalizeDailyRecords = (value: unknown): DailyRecords => {
 export const createDefaultState = (): PersistedState => {
   const today = getTodayKey()
   return {
-    version: 2,
+    version: 3,
     settings: { ...DEFAULT_SETTINGS },
     dailyRecords: {
       [today]: { date: today, completedPomodoros: 0, focusMinutes: 0 },
@@ -103,6 +107,10 @@ export const createDefaultState = (): PersistedState => {
     desktopNotifications: DEFAULT_DESKTOP_NOTIFICATIONS,
     closeToTray: DEFAULT_CLOSE_TO_TRAY,
     minimizeToTray: DEFAULT_MINIMIZE_TO_TRAY,
+    globalShortcutsEnabled: DEFAULT_GLOBAL_SHORTCUTS_ENABLED,
+    alwaysOnTop: DEFAULT_ALWAYS_ON_TOP,
+    rememberWindowPosition: DEFAULT_REMEMBER_WINDOW_POSITION,
+    compactMode: DEFAULT_COMPACT_MODE,
   }
 }
 
@@ -115,7 +123,7 @@ export const normalizeState = (value: unknown): PersistedState => {
   }
 
   return {
-    version: 2,
+    version: 3,
     settings: normalizeSettings(candidate.settings),
     dailyRecords: records,
     soundEnabled: typeof candidate.soundEnabled === 'boolean'
@@ -131,6 +139,18 @@ export const normalizeState = (value: unknown): PersistedState => {
     minimizeToTray: typeof candidate.minimizeToTray === 'boolean'
       ? candidate.minimizeToTray
       : DEFAULT_MINIMIZE_TO_TRAY,
+    globalShortcutsEnabled: typeof candidate.globalShortcutsEnabled === 'boolean'
+      ? candidate.globalShortcutsEnabled
+      : DEFAULT_GLOBAL_SHORTCUTS_ENABLED,
+    alwaysOnTop: typeof candidate.alwaysOnTop === 'boolean'
+      ? candidate.alwaysOnTop
+      : DEFAULT_ALWAYS_ON_TOP,
+    rememberWindowPosition: typeof candidate.rememberWindowPosition === 'boolean'
+      ? candidate.rememberWindowPosition
+      : DEFAULT_REMEMBER_WINDOW_POSITION,
+    compactMode: typeof candidate.compactMode === 'boolean'
+      ? candidate.compactMode
+      : DEFAULT_COMPACT_MODE,
   }
 }
 

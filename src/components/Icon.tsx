@@ -1,5 +1,5 @@
 interface IconProps {
-  name: 'play' | 'pause' | 'reset' | 'skip' | 'settings' | 'history' | 'check'
+  name: 'play' | 'pause' | 'reset' | 'skip' | 'settings' | 'history' | 'check' | 'compact' | 'expand'
   size?: number
 }
 
@@ -38,6 +38,14 @@ export const Icon = ({ name, size = 16 }: IconProps) => {
 
   if (name === 'history') {
     return <svg {...commonProps}><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5v5l3.2 2" /><path d="M4.2 6.8 3.5 4l2.9.3" /></svg>
+  }
+
+  if (name === 'compact') {
+    return <svg {...commonProps}><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M16 20h4v-4" /></svg>
+  }
+
+  if (name === 'expand') {
+    return <svg {...commonProps}><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" /></svg>
   }
 
   return <svg {...commonProps}><path d="m5 12 4.5 4.5L19 7" /></svg>
