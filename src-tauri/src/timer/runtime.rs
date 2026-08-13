@@ -473,7 +473,7 @@ mod tests {
     use crate::notification::RecordingNotification;
     use crate::timer::clock::test_support::{FakeClock, ThresholdDateResolver};
     use crate::timer::domain::{SessionStatus, TimerEventType, TimerStatus};
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     const START: i64 = 1_000_000;
 
@@ -575,7 +575,7 @@ mod tests {
     }
 
     fn create_manager(
-        path: &PathBuf,
+        path: &Path,
         clock: Arc<FakeClock>,
         sink: Arc<RecordingSink>,
         audio: Arc<RecordingNotifier>,
